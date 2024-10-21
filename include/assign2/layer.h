@@ -19,35 +19,43 @@
 #ifndef COSC_4P80_ASSIGNMENT_2_LAYER_H
 #define COSC_4P80_ASSIGNMENT_2_LAYER_H
 
-#include <Eigen/Dense>
 #include <blt/std/types.h>
+#include <assign2/initializers.h>
 
 namespace assign2
 {
-    
     class layer_t
     {
         public:
-            using matrix_t = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
-            using vector_t = Eigen::Matrix<float, Eigen::Dynamic, 1>;
-            
             layer_t(const blt::i32 in, const blt::i32 out): in_size(in), out_size(out)
             {}
             
+            template<typename WeightsFunc = empty_init, typename BiasFunc = empty_init>
+            void init(WeightsFunc weightFunc = empty_init{}, BiasFunc biasFunc = empty_init{})
+            {
+                weights.resize(in_size, out_size);
+                bias.resize(out_size);
+                
+                weightFunc(weights);
+                biasFunc(bias);
+            }
+            
             template<typename ActFunction>
-            vector_t forward(const vector_t & in, ActFunction func = ActFunction{})
+            vector_t call(const vector_t& in, ActFunction func = ActFunction{})
             {
                 vector_t out;
                 out.resize(out_size, Eigen::NoChange_t{});
                 out.noalias() = weights.transpose() * in;
                 out.colwise() += bias;
-                return func(out);
+                return func(std::move(out));
             }
         
         private:
             const blt::i32 in_size, out_size;
             matrix_t weights{};
+            matrix_t dweights{}; // derivative of weights
             vector_t bias{};
+            vector_t dbias{}; // derivative of bias
     };
 }
 

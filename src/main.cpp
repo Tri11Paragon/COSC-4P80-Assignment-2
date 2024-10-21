@@ -4,6 +4,8 @@
 #include <assign2/common.h>
 #include <filesystem>
 #include "blt/iterator/enumerate.h"
+#include <assign2/layer.h>
+#include <assign2/functions.h>
 
 using namespace assign2;
 
@@ -75,6 +77,36 @@ int main(int argc, const char** argv)
     
     auto data_files = load_data_files(get_data_files(data_directory));
     
+    vector_t input;
+    input.resize(16);
+    for (auto f : data_files)
+    {
+        if (f.data_points.begin()->bins.size() == 16)
+        {
+            for (auto [i, b] : blt::enumerate(f.data_points.begin()->bins))
+                input(static_cast<Eigen::Index>(i)) = b;
+        }
+    }
+    
+    random_init randomizer{619};
+    sigmoid_function sig;
+    
+    layer_t layer1{16, 4};
+    layer_t layer2{4, 4};
+    layer_t layer3{4, 4};
+    layer_t layer_output{4, 1};
+    layer1.init(randomizer, empty_init{});
+    layer2.init(randomizer, empty_init{});
+    layer3.init(randomizer, empty_init{});
+    layer_output.init(randomizer, empty_init{});
+    
+    auto output = layer1.call(input, sig);
+    output = layer2.call(output, sig);
+    output = layer3.call(output, sig);
+    output = layer_output.call(output, sig);
+    
+    std::cout << output << std::endl;
+
 //    for (auto d : data_files)
 //    {
 //        BLT_TRACE_STREAM << "\nSilly new file:\n";
@@ -90,8 +122,8 @@ int main(int argc, const char** argv)
 //            BLT_TRACE_STREAM << "]\n";
 //        }
 //    }
-
-
+    
+    
     
     std::cout << "Hello World!" << std::endl;
 }

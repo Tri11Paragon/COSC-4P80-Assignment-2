@@ -16,30 +16,38 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef COSC_4P80_ASSIGNMENT_2_COMMON_H
-#define COSC_4P80_ASSIGNMENT_2_COMMON_H
+#ifndef COSC_4P80_ASSIGNMENT_2_FUNCTIONS_H
+#define COSC_4P80_ASSIGNMENT_2_FUNCTIONS_H
 
-#include <Eigen/Dense>
+#include <assign2/common.h>
+#include <cmath>
 
 namespace assign2
 {
-    struct data_t
+    struct sigmoid_function
     {
-        bool is_bad = false;
-        std::vector<float> bins;
+        [[nodiscard]] Scalar call(Scalar s) const // NOLINT
+        {
+            return 1 / (1 + std::exp(-s));
+        }
+        
+        [[nodiscard]] Scalar derivative(Scalar s) const
+        {
+            return call(s) * (1 - call(s));
+        }
+        
+        vector_t operator()(vector_t out) const
+        {
+            for (auto& v : out)
+                v = call(v);
+            return out;
+        }
     };
     
-    struct data_file_t
+    struct linear_function
     {
-        std::vector<data_t> data_points;
+    
     };
-    
-    class layer_t;
-    class network_t;
-    
-    using Scalar = float;
-    using matrix_t = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
-    using vector_t = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
 }
 
-#endif //COSC_4P80_ASSIGNMENT_2_COMMON_H
+#endif //COSC_4P80_ASSIGNMENT_2_FUNCTIONS_H
