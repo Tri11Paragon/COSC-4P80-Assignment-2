@@ -33,13 +33,11 @@ namespace assign2
                 if (hidden_count > 0)
                 {
                     layers.push_back(layer_t{input_size, hidden_size});
-                    for (blt::i32 i = 0; i < hidden_count; i++)
+                    for (blt::i32 i = 1; i < hidden_count; i++)
                         layers.push_back(layer_t{hidden_size, hidden_size});
                     layers.push_back(layer_t{hidden_size, output_size});
                 } else
-                {
-                    
-                }
+                    layers.push_back(layer_t{input_size, output_size});
             }
         
         private:
