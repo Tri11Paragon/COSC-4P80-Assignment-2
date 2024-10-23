@@ -27,50 +27,35 @@ namespace assign2
 {
     struct empty_init
     {
-        template<int rows, int columns>
-        inline void operator()(Eigen::Matrix<Scalar, rows, columns>& matrix) const
+        inline Scalar operator()(blt::i32) const
         {
-            for (auto r : matrix.rowwise())
-            {
-                for (auto& v : r)
-                    v = 0;
-            }
+            return 0;
         }
     };
     
     struct half_init
     {
-        template<int rows, int columns>
-        inline void operator()(Eigen::Matrix<Scalar, rows, columns>& matrix) const
+        inline Scalar operator()(blt::i32) const
         {
-            for (auto r : matrix.rowwise())
-            {
-                for (auto& v : r)
-                    v = 0.5f;
-            }
+            return 0;
         }
     };
     
     struct random_init
     {
         public:
-            explicit random_init(blt::size_t seed, float min = 0.5 - 0.125, float max = 0.5 + 0.125): seed(seed), min(min), max(max)
+            explicit random_init(blt::size_t seed, Scalar min = -0.5, Scalar max = 0.5): random(seed), seed(seed), min(min), max(max)
             {}
             
-            template<int rows, int columns>
-            inline void operator()(Eigen::Matrix<Scalar, rows, columns>& matrix) const
+            inline Scalar operator()(blt::i32)
             {
-                blt::random::random_t random(seed);
-                for (auto r : matrix.rowwise())
-                {
-                    for (auto& v : r)
-                        v = random.get_float(min, max);
-                }
+                return static_cast<Scalar>(random.get_double(min, max));
             }
         
         private:
+            blt::random::random_t random;
             blt::size_t seed;
-            float min, max;
+            Scalar min, max;
     };
     
 }

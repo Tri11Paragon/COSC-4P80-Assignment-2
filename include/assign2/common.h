@@ -19,14 +19,15 @@
 #ifndef COSC_4P80_ASSIGNMENT_2_COMMON_H
 #define COSC_4P80_ASSIGNMENT_2_COMMON_H
 
-#include <Eigen/Dense>
 
 namespace assign2
 {
+    using Scalar = float;
+    
     struct data_t
     {
         bool is_bad = false;
-        std::vector<float> bins;
+        std::vector<Scalar> bins;
     };
     
     struct data_file_t
@@ -37,9 +38,57 @@ namespace assign2
     class layer_t;
     class network_t;
     
-    using Scalar = float;
-    using matrix_t = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
-    using vector_t = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
+    struct weight_view
+    {
+        public:
+            weight_view(double* data, blt::size_t size): m_data(data), m_size(size)
+            {}
+            
+            inline double& operator[](blt::size_t index) const
+            {
+#if BLT_DEBUG_LEVEL > 0
+                if (index >= size)
+                    throw std::runtime_error("Index is out of bounds!");
+#endif
+                return m_data[index];
+            }
+            
+            [[nodiscard]] inline blt::size_t size() const
+            {
+                return m_size;
+            }
+            
+            [[nodiscard]] auto begin() const
+            {
+                return m_data;
+            }
+            
+            [[nodiscard]] auto end() const
+            {
+                return m_data + m_size;
+            }
+        
+        private:
+            double* m_data;
+            blt::size_t m_size;
+    };
+    
+    /**
+     * this class exists purely as an optimization
+     */
+    class weight_t
+    {
+        public:
+            weight_view allocate_view(blt::size_t count)
+            {
+                auto size = data.size();
+                data.resize(size + count);
+                return {&data[size], count};
+            }
+        
+        private:
+            std::vector<double> data;
+    };
 }
 
 #endif //COSC_4P80_ASSIGNMENT_2_COMMON_H

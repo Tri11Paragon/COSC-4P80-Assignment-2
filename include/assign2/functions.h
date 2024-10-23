@@ -35,13 +35,6 @@ namespace assign2
         {
             return call(s) * (1 - call(s));
         }
-        
-        vector_t operator()(vector_t out) const
-        {
-            for (auto& v : out)
-                v = call(v);
-            return out;
-        }
     };
     
     struct linear_function

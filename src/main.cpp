@@ -6,6 +6,7 @@
 #include "blt/iterator/enumerate.h"
 #include <assign2/layer.h>
 #include <assign2/functions.h>
+#include <assign2/network.h>
 
 using namespace assign2;
 
@@ -67,6 +68,18 @@ std::vector<data_file_t> load_data_files(const std::vector<std::string>& files)
     return loaded_data;
 }
 
+template<typename T>
+decltype(std::cout)& print_vec(const std::vector<T>& vec)
+{
+    for (auto [i, v] : blt::enumerate(vec))
+    {
+        std::cout << v;
+        if (i != vec.size() - 1)
+            std::cout << ", ";
+    }
+    return std::cout;
+}
+
 int main(int argc, const char** argv)
 {
     blt::arg_parse parser;
@@ -77,35 +90,29 @@ int main(int argc, const char** argv)
     
     auto data_files = load_data_files(get_data_files(data_directory));
     
-    vector_t input;
+    std::vector<Scalar> input;
     input.resize(16);
     for (auto f : data_files)
     {
         if (f.data_points.begin()->bins.size() == 16)
         {
             for (auto [i, b] : blt::enumerate(f.data_points.begin()->bins))
-                input(static_cast<Eigen::Index>(i)) = b;
+                input[i] = b;
         }
     }
     
     random_init randomizer{619};
     sigmoid_function sig;
     
-    layer_t layer1{16, 4};
-    layer_t layer2{4, 4};
-    layer_t layer3{4, 4};
-    layer_t layer_output{4, 1};
-    layer1.init(randomizer, empty_init{});
-    layer2.init(randomizer, empty_init{});
-    layer3.init(randomizer, empty_init{});
-    layer_output.init(randomizer, empty_init{});
+    layer_t layer1{16, 4, randomizer, empty_init{}};
+    layer_t layer2{4, 4, randomizer, empty_init{}};
+    layer_t layer3{4, 4, randomizer, empty_init{}};
+    layer_t layer_output{4, 1, randomizer, empty_init{}};
     
-    auto output = layer1.call(input, sig);
-    output = layer2.call(output, sig);
-    output = layer3.call(output, sig);
-    output = layer_output.call(output, sig);
+    network_t network{{layer1, layer2, layer3, layer_output}};
     
-    std::cout << output << std::endl;
+    auto output = network.execute(input, sig, sig);
+    print_vec(output) << std::endl;
 
 //    for (auto d : data_files)
 //    {
