@@ -110,6 +110,8 @@ namespace assign2
             {
                 std::vector<Scalar> dw;
                 
+                
+                // this is close! i think the changes should be applied in the neuron since the slides show the change of weight PER NEURON PER INPUT
                 // δ(h)
                 if (is_output)
                 {
