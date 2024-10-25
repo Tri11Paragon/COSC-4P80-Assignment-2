@@ -16,6 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "blt/std/assert.h"
 #ifndef COSC_4P80_ASSIGNMENT_2_LAYER_H
 #define COSC_4P80_ASSIGNMENT_2_LAYER_H
 
@@ -51,6 +52,7 @@ namespace assign2
             {
                 // delta for weights
                 error = act->derivative(z) * next_error;
+                BLT_ASSERT(previous_outputs.size() == dw.size());
                 for (auto [prev_out, d_weight] : blt::zip(previous_outputs, dw))
                 {
                     // dw / apply dw
@@ -103,6 +105,8 @@ namespace assign2
                     in_size(in), out_size(out), act_func(act_func)
             {
                 neurons.reserve(out_size);
+                weights.preallocate(in_size * out_size);
+                weight_derivatives.preallocate(in_size * out_size);
                 for (blt::i32 i = 0; i < out_size; i++)
                 {
                     auto weight = weights.allocate_view(in_size);

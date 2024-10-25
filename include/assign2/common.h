@@ -102,10 +102,15 @@ namespace assign2
     class weight_t
     {
         public:
+            void preallocate(blt::size_t amount)
+            {
+                data.resize(amount);
+            }
+            
             weight_view allocate_view(blt::size_t count)
             {
-                auto size = data.size();
-                data.resize(size + count);
+                auto size = place;
+                place += count;
                 return {&data[size], count};
             }
             
@@ -116,6 +121,7 @@ namespace assign2
             }
         
         private:
+            blt::size_t place = 0;
             std::vector<Scalar> data;
     };
     
