@@ -31,11 +31,11 @@ namespace assign2
             friend layer_t;
         public:
             // empty neuron for loading from a stream
-            explicit neuron_t(weight_view weights): weights(weights)
+            explicit neuron_t(weight_view weights, weight_view dw): dw(dw), weights(weights)
             {}
             
             // neuron with bias
-            explicit neuron_t(weight_view weights, Scalar bias): bias(bias), weights(weights)
+            explicit neuron_t(weight_view weights, weight_view dw, Scalar bias): bias(bias), dw(dw), weights(weights)
             {}
             
             Scalar activate(const Scalar* inputs, function_t* act_func)
@@ -45,6 +45,23 @@ namespace assign2
                     z += x * w;
                 a = act_func->call(z);
                 return a;
+            }
+            
+            void back_prop(function_t* act, const std::vector<Scalar>& previous_outputs, Scalar next_error)
+            {
+                // delta for weights
+                error = act->derivative(z) * next_error;
+                for (auto [prev_out, d_weight] : blt::zip(previous_outputs, dw))
+                {
+                    // dw / apply dw
+                    d_weight = learn_rate * prev_out * error;
+                }
+            }
+            
+            void update()
+            {
+                for (auto [w, d] : blt::in_pairs(weights, dw))
+                    w += d;
             }
             
             template<typename OStream>
@@ -73,11 +90,13 @@ namespace assign2
             float a = 0;
             float bias = 0;
             float error = 0;
+            weight_view dw;
             weight_view weights;
     };
     
     class layer_t
     {
+            friend network_t;
         public:
             template<typename WeightFunc, typename BiasFunc>
             layer_t(const blt::i32 in, const blt::i32 out, function_t* act_func, WeightFunc w, BiasFunc b):
@@ -87,62 +106,64 @@ namespace assign2
                 for (blt::i32 i = 0; i < out_size; i++)
                 {
                     auto weight = weights.allocate_view(in_size);
+                    auto dw = weight_derivatives.allocate_view(in_size);
                     for (auto& v : weight)
                         v = w(i);
-                    neurons.push_back(neuron_t{weight, b(i)});
+                    neurons.push_back(neuron_t{weight, dw, b(i)});
                 }
             }
             
-            std::vector<Scalar> call(const std::vector<Scalar>& in)
+            const std::vector<Scalar>& call(const std::vector<Scalar>& in)
             {
-                std::vector<Scalar> out;
-                out.reserve(out_size);
+                outputs.clear();
+                outputs.reserve(out_size);
 #if BLT_DEBUG_LEVEL > 0
                 if (in.size() != in_size)
                     throw std::runtime_exception("Input vector doesn't match expected input size!");
 #endif
                 for (auto& n : neurons)
-                    out.push_back(n.activate(in.data(), act_func));
-                return out;
+                    outputs.push_back(n.activate(in.data(), act_func));
+                return outputs;
             }
             
-            Scalar back_prop(const std::vector<Scalar>& prev_layer_output, Scalar error, const layer_t& next_layer, bool is_output)
+            Scalar back_prop(const std::vector<Scalar>& prev_layer_output,
+                             const std::variant<blt::ref<const std::vector<Scalar>>, blt::ref<const layer_t>>& data)
             {
-                std::vector<Scalar> dw;
-                
-                
-                // this is close! i think the changes should be applied in the neuron since the slides show the change of weight PER NEURON PER INPUT
-                // δ(h)
-                if (is_output)
-                {
-                    // assign error to output layer
-                    for (auto& n : neurons)
-                        n.error = act_func->derivative(n.z) * error; // f'act(net(h)) * (error)
-                } else
-                {
-                    // first calculate and assign input layer error
-                    std::vector<Scalar> next_error;
-                    next_error.resize(next_layer.neurons.size());
-                    for (const auto& [i, w] : blt::enumerate(next_layer.neurons))
-                    {
-                        for (auto wv : w.weights)
-                            next_error[i] += w.error * wv;
-                        // needed?
-                        next_error[i] /= static_cast<Scalar>(w.weights.size());
-                    }
-                    
-                    for (auto& n : neurons)
-                    {
-                        n.error = act_func->derivative(n.z);
-                    }
-                }
-                
-                for (const auto& v : prev_layer_output)
-                {
-                
-                }
-                
-                return error_at_current_layer;
+                return std::visit(blt::lambda_visitor{
+                        // is provided if we are an output layer, contains output of this net (per neuron) and the expected output (per neuron)
+                        [this, &prev_layer_output](const std::vector<Scalar>& expected) {
+                            Scalar total_error = 0;
+                            for (auto [i, n] : blt::enumerate(neurons))
+                            {
+                                auto d = outputs[i] - expected[i];
+                                auto d2 = 0.5f * (d * d);
+                                total_error += d2;
+                                n.back_prop(act_func, prev_layer_output, d2);
+                            }
+                            return total_error;
+                        },
+                        // interior layer
+                        [this, &prev_layer_output](const layer_t& layer) {
+                            Scalar total_error = 0;
+                            for (auto [i, n] : blt::enumerate(neurons))
+                            {
+                                Scalar weight_error = 0;
+                                // TODO: this is not efficient on the cache!
+                                for (auto nn : layer.neurons)
+                                    weight_error += nn.error * nn.weights[i];
+                                Scalar w2 = 0.5f * weight_error * weight_error;
+                                total_error += w2;
+                                n.back_prop(act_func, prev_layer_output, w2);
+                            }
+                            return total_error;
+                        }
+                }, data);
+            }
+            
+            void update()
+            {
+                for (auto& n : neurons)
+                    n.update();
             }
             
             template<typename OStream>
@@ -181,8 +202,10 @@ namespace assign2
         private:
             const blt::i32 in_size, out_size;
             weight_t weights;
+            weight_t weight_derivatives;
             function_t* act_func;
             std::vector<neuron_t> neurons;
+            std::vector<Scalar> outputs;
     };
 }
 

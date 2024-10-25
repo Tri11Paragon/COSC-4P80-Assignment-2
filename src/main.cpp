@@ -79,37 +79,46 @@ int main(int argc, const char** argv)
     auto data_files = load_data_files(get_data_files(data_directory));
     
     random_init randomizer{619};
+    empty_init empty;
     sigmoid_function sig;
     relu_function relu;
     threshold_function thresh;
     
-    layer_t layer1{16, 8, &sig, randomizer, randomizer};
+    layer_t layer1{16, 16, &sig, randomizer, empty};
     layer1.debug();
-    layer_t layer2{8, 8, &sig, randomizer, randomizer};
+    layer_t layer2{16, 16, &sig, randomizer, empty};
     layer2.debug();
-    layer_t layer3{8, 8, &sig, randomizer, randomizer};
+    layer_t layer3{16, 16, &sig, randomizer, empty};
     layer3.debug();
-    layer_t layer_output{8, 2, &relu, randomizer, randomizer};
+    layer_t layer_output{16, 2, &sig, randomizer, empty};
     layer_output.debug();
     
     network_t network{{layer1, layer2, layer3, layer_output}};
     
-    std::vector<Scalar> input;
-    input.resize(16);
     for (auto f : data_files)
     {
         if (f.data_points.begin()->bins.size() == 16)
         {
-            for (auto [i, b] : blt::enumerate(f.data_points.begin()->bins))
-                input[i] = b;
-            network.train(f);
+            for (blt::size_t i = 0; i < 10; i++)
+            {
+                network.train_epoch(f);
+            }
             break;
         }
     }
+    BLT_INFO("Test Cases:");
     
-    auto output = network.execute(input);
-    print_vec(output) << std::endl;
-
+    for (auto f : data_files)
+    {
+        if (f.data_points.begin()->bins.size() == 16)
+        {
+            for (auto& d : f.data_points)
+            {
+                std::cout << "Good or bad? " << d.is_bad << " :: ";
+                print_vec(network.execute(d.bins)) << std::endl;
+            }
+        }
+    }
 //    for (auto d : data_files)
 //    {
 //        BLT_TRACE_STREAM << "\nSilly new file:\n";

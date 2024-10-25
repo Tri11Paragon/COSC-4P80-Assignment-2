@@ -25,7 +25,7 @@ ENVIRONMENT_DATA_LOCATION = USER_HOME / ".brett_scripts.env"
 
 if sys.platform.startswith("win"):
 	CONFIG_FILE_DIRECTORY = Path(os.getenv('APPDATA') + "\BLT")
-	CONFIG_FILE_LOCATION = Path(CONFIG_FILE_DIRECTORY + "\commit_config.env")
+	CONFIG_FILE_LOCATION = Path(CONFIG_FILE_DIRECTORY + "\commit_config.json")
 else:
 	XDG_CONFIG_HOME = os.environ.get('XDG_CONFIG_HOME')
 	if XDG_CONFIG_HOME is None:
@@ -36,7 +36,7 @@ else:
 	if len(str(XDG_CONFIG_HOME)) == 0:
 		XDG_CONFIG_HOME = USER_HOME
 	CONFIG_FILE_DIRECTORY = XDG_CONFIG_HOME / "blt"
-	CONFIG_FILE_LOCATION = CONFIG_FILE_DIRECTORY / "commit_config.env"
+	CONFIG_FILE_LOCATION = CONFIG_FILE_DIRECTORY / "commit_config.json"
 
 class Config:
 	def __init__(self):

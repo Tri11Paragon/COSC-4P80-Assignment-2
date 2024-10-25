@@ -29,8 +29,7 @@ namespace assign2
     {
         public:
             template<typename WeightFunc, typename BiasFunc>
-            network_t(blt::i32 input_size, blt::i32 output_size, blt::i32 layer_count, blt::i32 hidden_size, WeightFunc w, BiasFunc b):
-                    input_size(input_size), output_size(output_size), hidden_count(layer_count), hidden_size(hidden_size)
+            network_t(blt::i32 input_size, blt::i32 output_size, blt::i32 layer_count, blt::i32 hidden_size, WeightFunc w, BiasFunc b)
             {
                 if (layer_count > 0)
                 {
@@ -50,8 +49,7 @@ namespace assign2
             
             template<typename WeightFunc, typename BiasFunc, typename OutputWeightFunc, typename OutputBiasFunc>
             network_t(blt::i32 input_size, blt::i32 output_size, blt::i32 layer_count, blt::i32 hidden_size,
-                      WeightFunc w, BiasFunc b, OutputWeightFunc ow, OutputBiasFunc ob):
-                    input_size(input_size), output_size(output_size), hidden_count(layer_count), hidden_size(hidden_size)
+                      WeightFunc w, BiasFunc b, OutputWeightFunc ow, OutputBiasFunc ob)
             {
                 if (layer_count > 0)
                 {
@@ -69,28 +67,20 @@ namespace assign2
                 }
             }
             
-            explicit network_t(std::vector<layer_t> layers):
-                    input_size(layers.begin()->get_in_size()), output_size(layers.end()->get_out_size()),
-                    hidden_count(static_cast<blt::i32>(layers.size()) - 1), hidden_size(layers.end()->get_in_size()), layers(std::move(layers))
+            explicit network_t(std::vector<layer_t> layers): layers(std::move(layers))
             {}
             
             network_t() = default;
             
-            std::vector<Scalar> execute(const std::vector<Scalar>& input)
+            const std::vector<Scalar>& execute(const std::vector<Scalar>& input)
             {
-                std::vector<Scalar> previous_output;
-                std::vector<Scalar> current_output;
+                std::vector<blt::ref<const std::vector<Scalar>>> outputs;
+                outputs.emplace_back(input);
                 
-                for (auto [i, v] : blt::enumerate(layers))
-                {
-                    previous_output = current_output;
-                    if (i == 0)
-                        current_output = v.call(input);
-                    else
-                        current_output = v.call(previous_output);
-                }
+                for (auto& v : layers)
+                    outputs.emplace_back(v.call(outputs.back()));
                 
-                return current_output;
+                return outputs.back();
             }
             
             std::pair<Scalar, Scalar> error(const std::vector<Scalar>& outputs, bool is_bad)
@@ -108,19 +98,33 @@ namespace assign2
                 return {0.5f * (error * error), error};
             }
             
-            Scalar train(const data_file_t& example)
+            Scalar train_epoch(const data_file_t& example)
             {
                 Scalar total_error = 0;
                 Scalar total_d_error = 0;
                 for (const auto& x : example.data_points)
                 {
-                    print_vec(x.bins) << std::endl;
-                    auto o = execute(x.bins);
-                    print_vec(o) << std::endl;
-                    auto [e, de] = error(o, x.is_bad);
-                    total_error += e;
-                    total_d_error += -learn_rate * de;
-                    BLT_TRACE("\tError %f, %f, is bad? %s", e, -learn_rate * de, x.is_bad ? "True" : "False");
+                    execute(x.bins);
+                    std::vector<Scalar> expected{x.is_bad ? 0.0f : 1.0f, x.is_bad ? 1.0f : 0.0f};
+                    
+                    for (auto [i, layer] : blt::iterate(layers).enumerate().rev())
+                    {
+                        if (i == layers.size() - 1)
+                        {
+                            auto e = layer.back_prop(layers[i - 1].outputs, expected);
+                            total_error += e;
+                        } else if (i == 0)
+                        {
+                            auto e = layer.back_prop(x.bins, layers[i + 1]);
+                            total_error += e;
+                        } else
+                        {
+                            auto e = layer.back_prop(layers[i - 1].outputs, layers[i + 1]);
+                            total_error += e;
+                        }
+                    }
+                    for (auto& l : layers)
+                        l.update();
                 }
                 BLT_DEBUG("Total Errors found %f, %f", total_error, total_d_error);
                 
@@ -128,7 +132,6 @@ namespace assign2
             }
         
         private:
-            blt::i32 input_size, output_size, hidden_count, hidden_size;
             std::vector<layer_t> layers;
     };
 }
