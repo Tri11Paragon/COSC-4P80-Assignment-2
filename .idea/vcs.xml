@@ -3,6 +3,7 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/lib/blt" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/lib/blt-graphics" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/lib/blt/libraries/parallel-hashmap" vcs="Git" />
   </component>
 </project>

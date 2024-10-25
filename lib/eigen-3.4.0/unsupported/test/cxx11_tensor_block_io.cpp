@@ -86,7 +86,7 @@ static void test_block_io_copy_data_from_source_to_target() {
   auto output_strides = internal::strides<Layout>(dims);
 
   const T* input_data = input.data();
-  T* output_data = output.data();
+  T* neuron_data = output.data();
   T* block_data = block.data();
 
   for (int i = 0; i < block_mapper.blockCount(); ++i) {
@@ -105,7 +105,7 @@ static void test_block_io_copy_data_from_source_to_target() {
 
     {
       // Write from block buffer to output.
-      IODst dst(blk_dims, output_strides, output_data, desc.offset());
+      IODst dst(blk_dims, output_strides, neuron_data, desc.offset());
       IOSrc src(blk_strides, block_data, 0);
 
       TensorBlockIO::Copy(dst, src);
@@ -113,7 +113,7 @@ static void test_block_io_copy_data_from_source_to_target() {
   }
 
   for (int i = 0; i < dims.TotalSize(); ++i) {
-    VERIFY_IS_EQUAL(input_data[i], output_data[i]);
+    VERIFY_IS_EQUAL(input_data[i], neuron_data[i]);
   }
 }
 
@@ -159,7 +159,7 @@ static void test_block_io_copy_using_reordered_dimensions() {
   auto output_strides = internal::strides<Layout>(output_tensor_dims);
 
   const T* input_data = input.data();
-  T* output_data = output.data();
+  T* neuron_data = output.data();
   T* block_data = block.data();
 
   for (Index i = 0; i < block_mapper.blockCount(); ++i) {
@@ -198,7 +198,7 @@ static void test_block_io_copy_using_reordered_dimensions() {
       }
 
       // Write from block buffer to output.
-      IODst dst(dst_dims, input_strides, output_data, first_coeff_index);
+      IODst dst(dst_dims, input_strides, neuron_data, first_coeff_index);
       IOSrc src(blk_strides, block_data, 0);
 
       // TODO(ezhulenev): Remove when fully switched to TensorBlock.
@@ -210,7 +210,7 @@ static void test_block_io_copy_using_reordered_dimensions() {
   }
 
   for (Index i = 0; i < dims.TotalSize(); ++i) {
-    VERIFY_IS_EQUAL(input_data[i], output_data[i]);
+    VERIFY_IS_EQUAL(input_data[i], neuron_data[i]);
   }
 }
 

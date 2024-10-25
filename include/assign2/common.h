@@ -19,10 +19,25 @@
 #ifndef COSC_4P80_ASSIGNMENT_2_COMMON_H
 #define COSC_4P80_ASSIGNMENT_2_COMMON_H
 
+#include <iostream>
+#include <blt/iterator/enumerate.h>
 
 namespace assign2
 {
     using Scalar = float;
+    const inline Scalar learn_rate = 0.1;
+    
+    template<typename T>
+    decltype(std::cout)& print_vec(const std::vector<T>& vec)
+    {
+        for (auto [i, v] : blt::enumerate(vec))
+        {
+            std::cout << v;
+            if (i != vec.size() - 1)
+                std::cout << ", ";
+        }
+        return std::cout;
+    }
     
     struct data_t
     {
@@ -36,15 +51,23 @@ namespace assign2
     };
     
     class layer_t;
+    
     class network_t;
+    
+    struct function_t
+    {
+        [[nodiscard]] virtual Scalar call(Scalar) const = 0;
+        
+        [[nodiscard]] virtual Scalar derivative(Scalar) const = 0;
+    };
     
     struct weight_view
     {
         public:
-            weight_view(double* data, blt::size_t size): m_data(data), m_size(size)
+            weight_view(Scalar* data, blt::size_t size): m_data(data), m_size(size)
             {}
             
-            inline double& operator[](blt::size_t index) const
+            inline Scalar& operator[](blt::size_t index) const
             {
 #if BLT_DEBUG_LEVEL > 0
                 if (index >= size)
@@ -69,7 +92,7 @@ namespace assign2
             }
         
         private:
-            double* m_data;
+            Scalar* m_data;
             blt::size_t m_size;
     };
     
@@ -85,10 +108,17 @@ namespace assign2
                 data.resize(size + count);
                 return {&data[size], count};
             }
+            
+            void debug() const
+            {
+                std::cout << "Weights: ";
+                print_vec(data) << std::endl;
+            }
         
         private:
-            std::vector<double> data;
+            std::vector<Scalar> data;
     };
+    
 }
 
 #endif //COSC_4P80_ASSIGNMENT_2_COMMON_H

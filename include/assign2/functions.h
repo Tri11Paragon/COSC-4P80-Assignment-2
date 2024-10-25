@@ -24,22 +24,44 @@
 
 namespace assign2
 {
-    struct sigmoid_function
+    struct sigmoid_function : public function_t
     {
-        [[nodiscard]] Scalar call(Scalar s) const // NOLINT
+        [[nodiscard]] Scalar call(const Scalar s) const final
         {
             return 1 / (1 + std::exp(-s));
         }
         
-        [[nodiscard]] Scalar derivative(Scalar s) const
+        [[nodiscard]] Scalar derivative(const Scalar s) const final
         {
-            return call(s) * (1 - call(s));
+            auto v = call(s);
+            return v * (1 - v);
         }
     };
     
-    struct linear_function
+    struct threshold_function : public function_t
     {
+        [[nodiscard]] Scalar call(const Scalar s) const final
+        {
+            return s >= 0 ? 1 : 0;
+        }
+        
+        [[nodiscard]] Scalar derivative(Scalar s) const final
+        {
+            return 0;
+        }
+    };
     
+    struct relu_function : public function_t
+    {
+        [[nodiscard]] Scalar call(const Scalar s) const final
+        {
+            return std::max(static_cast<Scalar>(0), s);
+        }
+        
+        [[nodiscard]] Scalar derivative(Scalar s) const final
+        {
+            return 0;
+        }
     };
 }
 

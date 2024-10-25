@@ -68,18 +68,6 @@ std::vector<data_file_t> load_data_files(const std::vector<std::string>& files)
     return loaded_data;
 }
 
-template<typename T>
-decltype(std::cout)& print_vec(const std::vector<T>& vec)
-{
-    for (auto [i, v] : blt::enumerate(vec))
-    {
-        std::cout << v;
-        if (i != vec.size() - 1)
-            std::cout << ", ";
-    }
-    return std::cout;
-}
-
 int main(int argc, const char** argv)
 {
     blt::arg_parse parser;
@@ -90,6 +78,22 @@ int main(int argc, const char** argv)
     
     auto data_files = load_data_files(get_data_files(data_directory));
     
+    random_init randomizer{619};
+    sigmoid_function sig;
+    relu_function relu;
+    threshold_function thresh;
+    
+    layer_t layer1{16, 8, &sig, randomizer, randomizer};
+    layer1.debug();
+    layer_t layer2{8, 8, &sig, randomizer, randomizer};
+    layer2.debug();
+    layer_t layer3{8, 8, &sig, randomizer, randomizer};
+    layer3.debug();
+    layer_t layer_output{8, 2, &relu, randomizer, randomizer};
+    layer_output.debug();
+    
+    network_t network{{layer1, layer2, layer3, layer_output}};
+    
     std::vector<Scalar> input;
     input.resize(16);
     for (auto f : data_files)
@@ -98,20 +102,12 @@ int main(int argc, const char** argv)
         {
             for (auto [i, b] : blt::enumerate(f.data_points.begin()->bins))
                 input[i] = b;
+            network.train(f);
+            break;
         }
     }
     
-    random_init randomizer{619};
-    sigmoid_function sig;
-    
-    layer_t layer1{16, 4, randomizer, empty_init{}};
-    layer_t layer2{4, 4, randomizer, empty_init{}};
-    layer_t layer3{4, 4, randomizer, empty_init{}};
-    layer_t layer_output{4, 1, randomizer, empty_init{}};
-    
-    network_t network{{layer1, layer2, layer3, layer_output}};
-    
-    auto output = network.execute(input, sig, sig);
+    auto output = network.execute(input);
     print_vec(output) << std::endl;
 
 //    for (auto d : data_files)

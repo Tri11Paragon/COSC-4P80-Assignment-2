@@ -219,9 +219,9 @@ public:
         , output_dims(output_dims_), output_strides(output_strides_)
         {}
 
-    void operator()(const Scalar* output_data) const
+    void operator()(const Scalar* neuron_data) const
     {
-        check_recursive(input_data, output_data);
+        check_recursive(input_data, neuron_data);
     }
 };
 

@@ -21,6 +21,7 @@
 
 #include <assign2/common.h>
 #include <assign2/layer.h>
+#include "blt/std/assert.h"
 
 namespace assign2
 {
@@ -75,8 +76,7 @@ namespace assign2
             
             network_t() = default;
             
-            template<typename ActFunc, typename ActFuncOut>
-            std::vector<Scalar> execute(const std::vector<Scalar>& input, ActFunc func, ActFuncOut outFunc)
+            std::vector<Scalar> execute(const std::vector<Scalar>& input)
             {
                 std::vector<Scalar> previous_output;
                 std::vector<Scalar> current_output;
@@ -85,39 +85,45 @@ namespace assign2
                 {
                     previous_output = current_output;
                     if (i == 0)
-                        current_output = v.call(input, func);
-                    else if (i == layers.size() - 1)
-                        current_output = v.call(previous_output, outFunc);
+                        current_output = v.call(input);
                     else
-                        current_output = v.call(previous_output, func);
+                        current_output = v.call(previous_output);
                 }
                 
                 return current_output;
             }
             
+            std::pair<Scalar, Scalar> error(const std::vector<Scalar>& outputs, bool is_bad)
+            {
+                BLT_ASSERT(outputs.size() == 2);
+                auto g = is_bad ? 0.0f : 1.0f;
+                auto b = is_bad ? 1.0f : 0.0f;
+                
+                auto g_diff = outputs[0] - g;
+                auto b_diff = outputs[1] - b;
+                
+                auto error = g_diff * g_diff + b_diff * b_diff;
+                BLT_INFO("%f %f %f", error, g_diff, b_diff);
+                
+                return {0.5f * (error * error), error};
+            }
+            
             Scalar train(const data_file_t& example)
             {
-                const Scalar learn_rate = 0.1;
-                
                 Scalar total_error = 0;
+                Scalar total_d_error = 0;
                 for (const auto& x : example.data_points)
                 {
-                    auto o = execute(x.bins, sigmoid_function{}, sigmoid_function{});
-                    auto y = x.is_bad ? 1.0f : 0.0f;
-                    
-                    Scalar is_bad = 0;
-                    if (o[0] >= 1)
-                        is_bad = 0;
-                    else if (o[1] >= 1)
-                        is_bad = 1;
-                    
-                    auto error = y - is_bad;
-                    if (o[0] >= 1 && o[1] >= 1)
-                        error += 1;
-                    
-                    total_error += error;
-                    
+                    print_vec(x.bins) << std::endl;
+                    auto o = execute(x.bins);
+                    print_vec(o) << std::endl;
+                    auto [e, de] = error(o, x.is_bad);
+                    total_error += e;
+                    total_d_error += -learn_rate * de;
+                    BLT_TRACE("\tError %f, %f, is bad? %s", e, -learn_rate * de, x.is_bad ? "True" : "False");
                 }
+                BLT_DEBUG("Total Errors found %f, %f", total_error, total_d_error);
+                
                 return total_error;
             }
         

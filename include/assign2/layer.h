@@ -28,6 +28,7 @@ namespace assign2
 {
     class neuron_t
     {
+            friend layer_t;
         public:
             // empty neuron for loading from a stream
             explicit neuron_t(weight_view weights): weights(weights)
@@ -37,13 +38,13 @@ namespace assign2
             explicit neuron_t(weight_view weights, Scalar bias): bias(bias), weights(weights)
             {}
             
-            template<typename ActFunc>
-            Scalar activate(const Scalar* inputs, ActFunc func) const
+            Scalar activate(const Scalar* inputs, function_t* act_func)
             {
-                auto sum = bias;
+                z = bias;
                 for (auto [x, w] : blt::zip_iterator_container({inputs, inputs + weights.size()}, {weights.begin(), weights.end()}))
-                    sum += x * w;
-                return func.call(sum);
+                    z += x * w;
+                a = act_func->call(z);
+                return a;
             }
             
             template<typename OStream>
@@ -61,9 +62,17 @@ namespace assign2
                     stream >> d;
                 stream >> bias;
             }
+            
+            void debug() const
+            {
+                std::cout << bias << " ";
+            }
         
         private:
-            Scalar bias = 0;
+            float z = 0;
+            float a = 0;
+            float bias = 0;
+            float error = 0;
             weight_view weights;
     };
     
@@ -71,7 +80,8 @@ namespace assign2
     {
         public:
             template<typename WeightFunc, typename BiasFunc>
-            layer_t(const blt::i32 in, const blt::i32 out, WeightFunc w, BiasFunc b): in_size(in), out_size(out)
+            layer_t(const blt::i32 in, const blt::i32 out, function_t* act_func, WeightFunc w, BiasFunc b):
+                    in_size(in), out_size(out), act_func(act_func)
             {
                 neurons.reserve(out_size);
                 for (blt::i32 i = 0; i < out_size; i++)
@@ -83,8 +93,7 @@ namespace assign2
                 }
             }
             
-            template<typename ActFunction>
-            std::vector<Scalar> call(const std::vector<Scalar>& in, ActFunction func = ActFunction{})
+            std::vector<Scalar> call(const std::vector<Scalar>& in)
             {
                 std::vector<Scalar> out;
                 out.reserve(out_size);
@@ -93,8 +102,45 @@ namespace assign2
                     throw std::runtime_exception("Input vector doesn't match expected input size!");
 #endif
                 for (auto& n : neurons)
-                    out.push_back(n.activate(in.data(), func));
+                    out.push_back(n.activate(in.data(), act_func));
                 return out;
+            }
+            
+            Scalar back_prop(const std::vector<Scalar>& prev_layer_output, Scalar error, const layer_t& next_layer, bool is_output)
+            {
+                std::vector<Scalar> dw;
+                
+                // δ(h)
+                if (is_output)
+                {
+                    // assign error to output layer
+                    for (auto& n : neurons)
+                        n.error = act_func->derivative(n.z) * error; // f'act(net(h)) * (error)
+                } else
+                {
+                    // first calculate and assign input layer error
+                    std::vector<Scalar> next_error;
+                    next_error.resize(next_layer.neurons.size());
+                    for (const auto& [i, w] : blt::enumerate(next_layer.neurons))
+                    {
+                        for (auto wv : w.weights)
+                            next_error[i] += w.error * wv;
+                        // needed?
+                        next_error[i] /= static_cast<Scalar>(w.weights.size());
+                    }
+                    
+                    for (auto& n : neurons)
+                    {
+                        n.error = act_func->derivative(n.z);
+                    }
+                }
+                
+                for (const auto& v : prev_layer_output)
+                {
+                
+                }
+                
+                return error_at_current_layer;
             }
             
             template<typename OStream>
@@ -120,9 +166,20 @@ namespace assign2
             {
                 return out_size;
             }
+            
+            void debug() const
+            {
+                std::cout << "Bias: ";
+                for (auto& v : neurons)
+                    v.debug();
+                std::cout << std::endl;
+                weights.debug();
+            }
+        
         private:
             const blt::i32 in_size, out_size;
             weight_t weights;
+            function_t* act_func;
             std::vector<neuron_t> neurons;
     };
 }

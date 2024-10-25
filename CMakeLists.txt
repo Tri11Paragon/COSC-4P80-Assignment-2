@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.25)
-project(COSC-4P80-Assignment-2 VERSION 0.0.3)
+project(COSC-4P80-Assignment-2 VERSION 0.0.4)
 
 option(ENABLE_ADDRSAN "Enable the address sanitizer" OFF)
 option(ENABLE_UBSAN "Enable the ub sanitizer" OFF)
 option(ENABLE_TSAN "Enable the thread data race sanitizer" OFF)
+option(ENABLE_GRAPHICS "Enable usage of graphics package" OFF)
 #option(EIGEN_TEST_CXX11 "Enable testing with C++11 and C++11 features (e.g. Tensor module)." ON)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -12,7 +13,12 @@ if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
-add_subdirectory(lib/blt)
+if (ENABLE_GRAPHICS)
+    add_subdirectory(lib/blt-graphics)
+    add_compile_definitions(BLT_USE_GRAPHICS)
+else ()
+    add_subdirectory(lib/blt)
+endif ()
 
 #add_subdirectory(lib/eigen-3.4.0)
 
@@ -25,7 +31,11 @@ target_compile_options(COSC-4P80-Assignment-2 PRIVATE -Wall -Wextra -Wpedantic -
 target_link_options(COSC-4P80-Assignment-2 PRIVATE -Wall -Wextra -Wpedantic -Wno-comment)
 
 #target_link_libraries(COSC-4P80-Assignment-2 PRIVATE BLT Eigen3::Eigen)
-target_link_libraries(COSC-4P80-Assignment-2 PRIVATE BLT)
+if (ENABLE_GRAPHICS)
+    target_link_libraries(COSC-4P80-Assignment-2 PRIVATE BLT_WITH_GRAPHICS)
+else ()
+    target_link_libraries(COSC-4P80-Assignment-2 PRIVATE BLT)
+endif ()
 
 if (${ENABLE_ADDRSAN} MATCHES ON)
     target_compile_options(COSC-4P80-Assignment-2 PRIVATE -fsanitize=address)
