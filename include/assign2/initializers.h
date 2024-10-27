@@ -33,11 +33,11 @@ namespace assign2
         }
     };
     
-    struct half_init
+    struct small_init
     {
         inline Scalar operator()(blt::i32) const
         {
-            return 0;
+            return 0.01;
         }
     };
     

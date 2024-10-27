@@ -21,11 +21,21 @@
 
 #include <iostream>
 #include <blt/iterator/enumerate.h>
+#include <filesystem>
+
+#ifdef BLT_USE_GRAPHICS
+    
+    #include "blt/gfx/renderer/batch_2d_renderer.h"
+    #include "blt/gfx/window.h"
+    #include <imgui.h>
+
+#endif
 
 namespace assign2
 {
     using Scalar = float;
-    const inline Scalar learn_rate = 0.1;
+//    const inline Scalar learn_rate = 0.001;
+    inline Scalar learn_rate = 0.001;
     
     template<typename T>
     decltype(std::cout)& print_vec(const std::vector<T>& vec)
@@ -102,6 +112,22 @@ namespace assign2
     class weight_t
     {
         public:
+            weight_t() = default;
+            
+            weight_t(const weight_t& copy) = delete;
+            
+            weight_t& operator=(const weight_t& copy) = delete;
+            
+            weight_t(weight_t&& move) noexcept: place(std::exchange(move.place, 0)), data(std::move(move.data))
+            {}
+            
+            weight_t& operator=(weight_t&& move) noexcept
+            {
+                place = std::exchange(move.place, place);
+                data = std::exchange(move.data, std::move(data));
+                return *this;
+            }
+            
             void preallocate(blt::size_t amount)
             {
                 data.resize(amount);
@@ -124,6 +150,82 @@ namespace assign2
             blt::size_t place = 0;
             std::vector<Scalar> data;
     };
+    
+    std::vector<std::string> get_data_files(std::string_view path)
+    {
+        std::vector<std::string> files;
+        
+        for (const auto& file : std::filesystem::recursive_directory_iterator(path))
+        {
+            if (file.is_directory())
+                continue;
+            auto file_path = file.path().string();
+            if (blt::string::ends_with(file_path, ".out"))
+                files.push_back(blt::fs::getFile(file_path));
+        }
+        
+        return files;
+    }
+    
+    std::vector<data_file_t> load_data_files(const std::vector<std::string>& files)
+    {
+        std::vector<data_file_t> loaded_data;
+        
+        // load all file
+        for (auto file : files)
+        {
+            // we only use unix line endings here...
+            blt::string::replaceAll(file, "\r", "");
+            auto lines = blt::string::split(file, "\n");
+            auto line_it = lines.begin();
+            auto meta = blt::string::split(*line_it, ' ');
+            
+            // load data inside files
+            data_file_t data;
+            data.data_points.reserve(std::stoll(meta[0]));
+            auto bin_count = std::stoul(meta[1]);
+            
+            for (++line_it; line_it != lines.end(); ++line_it)
+            {
+                auto line_data_meta = blt::string::split(*line_it, ' ');
+                if (line_data_meta.size() != bin_count + 1)
+                    continue;
+                auto line_data_it = line_data_meta.begin();
+                
+                // load bins
+                data_t line_data;
+                line_data.is_bad = std::stoi(*line_data_it) == 1;
+                line_data.bins.reserve(bin_count);
+                Scalar total = 0;
+                for (++line_data_it; line_data_it != line_data_meta.end(); ++line_data_it)
+                {
+                    auto v = std::stof(*line_data_it);
+                    total += v * v;
+                    line_data.bins.push_back(v);
+                }
+                
+                // normalize vector.
+                total = std::sqrt(total);
+//
+                for (auto& v : line_data.bins)
+                    v /= total;
+//
+//            if (line_data.bins.size() == 32)
+//                print_vec(line_data.bins) << std::endl;
+                
+                data.data_points.push_back(line_data);
+            }
+            
+            loaded_data.push_back(data);
+        }
+        
+        return loaded_data;
+    }
+    
+    bool is_thinks_bad(const std::vector<Scalar>& out)
+    {
+        return out[0] < out[1];
+    }
     
 }
 

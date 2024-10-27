@@ -22,6 +22,7 @@
 #include <assign2/common.h>
 #include <assign2/layer.h>
 #include "blt/std/assert.h"
+#include "global_magic.h"
 
 namespace assign2
 {
@@ -36,14 +37,14 @@ namespace assign2
                     for (blt::i32 i = 0; i < layer_count; i++)
                     {
                         if (i == 0)
-                            layers.push_back(layer_t{input_size, hidden_size, w, b});
+                            layers.push_back(std::make_unique<layer_t>(input_size, hidden_size, w, b));
                         else
-                            layers.push_back(layer_t{hidden_size, hidden_size, w, b});
+                            layers.push_back(std::make_unique<layer_t>(hidden_size, hidden_size, w, b));
                     }
-                    layers.push_back(layer_t{hidden_size, output_size, w, b});
+                    layers.push_back(std::make_unique<layer_t>(hidden_size, output_size, w, b));
                 } else
                 {
-                    layers.push_back(layer_t{input_size, output_size, w, b});
+                    layers.push_back(std::make_unique<layer_t>(input_size, output_size, w, b));
                 }
             }
             
@@ -56,18 +57,18 @@ namespace assign2
                     for (blt::i32 i = 0; i < layer_count; i++)
                     {
                         if (i == 0)
-                            layers.push_back(layer_t{input_size, hidden_size, w, b});
+                            layers.push_back(std::make_unique<layer_t>(input_size, hidden_size, w, b));
                         else
-                            layers.push_back(layer_t{hidden_size, hidden_size, w, b});
+                            layers.push_back(std::make_unique<layer_t>(hidden_size, hidden_size, w, b));
                     }
-                    layers.push_back(layer_t{hidden_size, output_size, ow, ob});
+                    layers.push_back(std::make_unique<layer_t>(hidden_size, output_size, ow, ob));
                 } else
                 {
-                    layers.push_back(layer_t{input_size, output_size, ow, ob});
+                    layers.push_back(std::make_unique<layer_t>(input_size, output_size, ow, ob));
                 }
             }
             
-            explicit network_t(std::vector<layer_t> layers): layers(std::move(layers))
+            explicit network_t(std::vector<std::unique_ptr<layer_t>> layers): layers(std::move(layers))
             {}
             
             network_t() = default;
@@ -78,27 +79,12 @@ namespace assign2
                 outputs.emplace_back(input);
                 
                 for (auto& v : layers)
-                    outputs.emplace_back(v.call(outputs.back()));
+                    outputs.emplace_back(v->call(outputs.back()));
                 
                 return outputs.back();
             }
             
-            std::pair<Scalar, Scalar> error(const std::vector<Scalar>& outputs, bool is_bad)
-            {
-                BLT_ASSERT(outputs.size() == 2);
-                auto g = is_bad ? 0.0f : 1.0f;
-                auto b = is_bad ? 1.0f : 0.0f;
-                
-                auto g_diff = outputs[0] - g;
-                auto b_diff = outputs[1] - b;
-                
-                auto error = g_diff * g_diff + b_diff * b_diff;
-                BLT_INFO("%f %f %f", error, g_diff, b_diff);
-                
-                return {0.5f * (error * error), error};
-            }
-            
-            Scalar train_epoch(const data_file_t& example)
+            std::pair<Scalar, Scalar> train_epoch(const data_file_t& example)
             {
                 Scalar total_error = 0;
                 Scalar total_d_error = 0;
@@ -111,28 +97,45 @@ namespace assign2
                     {
                         if (i == layers.size() - 1)
                         {
-                            auto e = layer.back_prop(layers[i - 1].outputs, expected);
-                            total_error += e;
+                            auto e = layer->back_prop(layers[i - 1]->outputs, expected);
+//                            layer->update();
+                            total_error += e.first;
+                            total_d_error += e.second;
                         } else if (i == 0)
                         {
-                            auto e = layer.back_prop(x.bins, layers[i + 1]);
-                            total_error += e;
+                            auto e = layer->back_prop(x.bins, *layers[i + 1]);
+//                            layer->update();
+                            total_error += e.first;
+                            total_d_error += e.second;
                         } else
                         {
-                            auto e = layer.back_prop(layers[i - 1].outputs, layers[i + 1]);
-                            total_error += e;
+                            auto e = layer->back_prop(layers[i - 1]->outputs, *layers[i + 1]);
+//                            layer->update();
+                            total_error += e.first;
+                            total_d_error += e.second;
                         }
                     }
                     for (auto& l : layers)
-                        l.update();
+                        l->update();
                 }
-                BLT_DEBUG("Total Errors found %f, %f", total_error, total_d_error);
+//                errors_over_time.push_back(total_error);
+//                BLT_DEBUG("Total Errors found %f, %f", total_error, total_d_error);
                 
-                return total_error;
+                return {total_error, total_d_error};
             }
+
+#ifdef BLT_USE_GRAPHICS
+            
+            void render() const
+            {
+                for (auto& l : layers)
+                    l->render();
+            }
+
+#endif
         
         private:
-            std::vector<layer_t> layers;
+            std::vector<std::unique_ptr<layer_t>> layers;
     };
 }
 

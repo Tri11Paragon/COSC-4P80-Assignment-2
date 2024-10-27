@@ -38,16 +38,19 @@ namespace assign2
         }
     };
     
-    struct threshold_function : public function_t
+    struct tanh_function : public function_t
     {
-        [[nodiscard]] Scalar call(const Scalar s) const final
+        [[nodiscard]] Scalar call(Scalar s) const final
         {
-            return s >= 0 ? 1 : 0;
+            auto x = std::exp(s);
+            auto nx = std::exp(-s);
+            return (x - nx) / (x + nx);
         }
         
         [[nodiscard]] Scalar derivative(Scalar s) const final
         {
-            return 0;
+            auto tanh = std::tanh(s);
+            return 1 - (tanh * tanh);
         }
     };
     
@@ -60,7 +63,7 @@ namespace assign2
         
         [[nodiscard]] Scalar derivative(Scalar s) const final
         {
-            return 0;
+            return s >= 0 ? 1 : 0;
         }
     };
 }
