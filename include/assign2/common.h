@@ -60,6 +60,19 @@ namespace assign2
         std::vector<data_t> data_points;
     };
     
+    struct error_data_t
+    {
+        Scalar error;
+        Scalar d_error;
+        
+        error_data_t& operator+=(const error_data_t& e)
+        {
+            error += e.error;
+            d_error += e.d_error;
+            return *this;
+        }
+    };
+    
     class layer_t;
     
     class network_t;
@@ -197,9 +210,15 @@ namespace assign2
                 line_data.is_bad = std::stoi(*line_data_it) == 1;
                 line_data.bins.reserve(bin_count);
                 Scalar total = 0;
+                Scalar min = 1000;
+                Scalar max = 0;
                 for (++line_data_it; line_data_it != line_data_meta.end(); ++line_data_it)
                 {
                     auto v = std::stof(*line_data_it);
+                    if (v > max)
+                        max = v;
+                    if (v < min)
+                        min = v;
                     total += v * v;
                     line_data.bins.push_back(v);
                 }
@@ -207,8 +226,12 @@ namespace assign2
                 // normalize vector.
                 total = std::sqrt(total);
 //
-                for (auto& v : line_data.bins)
-                    v /= total;
+//                for (auto& v : line_data.bins)
+//                {
+//                    v /= total;
+//                    v *= 2.71828;
+//                    v -= 2.71828 / 2;
+//                }
 //
 //            if (line_data.bins.size() == 32)
 //                print_vec(line_data.bins) << std::endl;

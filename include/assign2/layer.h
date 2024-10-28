@@ -41,10 +41,12 @@ namespace assign2
             explicit neuron_t(weight_view weights, weight_view dw, Scalar bias): bias(bias), dw(dw), weights(weights)
             {}
             
-            Scalar activate(const Scalar* inputs, function_t* act_func)
+            Scalar activate(const std::vector<Scalar>& inputs, function_t* act_func)
             {
+                BLT_ASSERT_MSG(inputs.size() == weights.size(), (std::to_string(inputs.size())  + " vs " + std::to_string(weights.size())).c_str());
+                
                 z = bias;
-                for (auto [x, w] : blt::zip_iterator_container({inputs, inputs + weights.size()}, {weights.begin(), weights.end()}))
+                for (auto [x, w] : blt::zip_iterator_container({inputs.begin(), inputs.end()}, {weights.begin(), weights.end()}))
                     z += x * w;
                 a = act_func->call(z);
                 return a;
@@ -131,11 +133,11 @@ namespace assign2
                     throw std::runtime_exception("Input vector doesn't match expected input size!");
 #endif
                 for (auto& n : neurons)
-                    outputs.push_back(n.activate(in.data(), act_func));
+                    outputs.push_back(n.activate(in, act_func));
                 return outputs;
             }
             
-            std::pair<Scalar, Scalar> back_prop(const std::vector<Scalar>& prev_layer_output,
+            error_data_t back_prop(const std::vector<Scalar>& prev_layer_output,
                                                 const std::variant<blt::ref<const std::vector<Scalar>>, blt::ref<const layer_t>>& data)
             {
                 Scalar total_error = 0;
@@ -151,6 +153,8 @@ namespace assign2
                                 total_derivative += d;
                                 n.back_prop(act_func, prev_layer_output, d);
                             }
+                            total_error /= static_cast<Scalar>(expected.size());
+                            total_derivative /= static_cast<Scalar>(expected.size());
                         },
                         // interior layer
                         [this, &prev_layer_output](const layer_t& layer) {
@@ -208,9 +212,32 @@ namespace assign2
 
 #ifdef BLT_USE_GRAPHICS
             
-            void render() const
+            void render(blt::gfx::batch_renderer_2d& renderer) const
             {
-            
+                const blt::size_t distance_between_layers = 30;
+                const float neuron_size = 30;
+                const float padding = -5;
+                for (const auto& [i, n] : blt::enumerate(neurons))
+                {
+                    auto color = std::abs(n.a);
+                    renderer.drawPointInternal(blt::make_color(0.1, 0.1, 0.1),
+                                               blt::gfx::point2d_t{static_cast<float>(i) * (neuron_size + padding) + neuron_size,
+                                                                   static_cast<float>(layer_id * distance_between_layers) + neuron_size,
+                                                                   neuron_size / 2}, 10);
+                    auto outline_size = neuron_size + 10;
+                    renderer.drawPointInternal(blt::make_color(color, color, color),
+                                               blt::gfx::point2d_t{static_cast<float>(i) * (neuron_size + padding) + neuron_size,
+                                                                   static_cast<float>(layer_id * distance_between_layers) + neuron_size,
+                                                                   outline_size / 2}, 0);
+//                    const ImVec2 alignment = ImVec2(0.5f, 0.5f);
+//                    if (i > 0)
+//                        ImGui::SameLine();
+//                    ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, alignment);
+//                    std::string name;
+//                    name = std::to_string(n.a);
+//                    ImGui::Selectable(name.c_str(), false, ImGuiSelectableFlags_None, ImVec2(80, 80));
+//                    ImGui::PopStyleVar();
+                }
             }
 
 #endif

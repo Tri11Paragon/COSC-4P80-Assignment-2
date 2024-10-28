@@ -78,58 +78,96 @@ namespace assign2
                 std::vector<blt::ref<const std::vector<Scalar>>> outputs;
                 outputs.emplace_back(input);
                 
-                for (auto& v : layers)
+                for (auto [i, v] : blt::enumerate(layers))
+                {
+//                    auto in = outputs.back();
+//                    std::cout << "(" << i + 1 << "/" << layers.size() << ") Going In: ";
+//                    print_vec(in.get()) << std::endl;
+//                    auto& out = v->call(in);
+//                    std::cout << "(" << i + 1 << "/" << layers.size() << ") Coming out: ";
+//                    print_vec(out) << std::endl;
+////                    std::cout << "(" << i << "/" << layers.size() << ") Weights: ";
+////                    v->weights.debug();
+////                    std::cout << std::endl;
+//                    std::cout << std::endl;
+//
+//                    outputs.emplace_back(out);
                     outputs.emplace_back(v->call(outputs.back()));
+                }
+//                std::cout << std::endl;
                 
                 return outputs.back();
             }
             
-            std::pair<Scalar, Scalar> train_epoch(const data_file_t& example)
+            error_data_t error(const data_file_t& data)
             {
                 Scalar total_error = 0;
                 Scalar total_d_error = 0;
-                for (const auto& x : example.data_points)
-                {
-                    execute(x.bins);
-                    std::vector<Scalar> expected{x.is_bad ? 0.0f : 1.0f, x.is_bad ? 1.0f : 0.0f};
-                    
-                    for (auto [i, layer] : blt::iterate(layers).enumerate().rev())
-                    {
-                        if (i == layers.size() - 1)
-                        {
-                            auto e = layer->back_prop(layers[i - 1]->outputs, expected);
-//                            layer->update();
-                            total_error += e.first;
-                            total_d_error += e.second;
-                        } else if (i == 0)
-                        {
-                            auto e = layer->back_prop(x.bins, *layers[i + 1]);
-//                            layer->update();
-                            total_error += e.first;
-                            total_d_error += e.second;
-                        } else
-                        {
-                            auto e = layer->back_prop(layers[i - 1]->outputs, *layers[i + 1]);
-//                            layer->update();
-                            total_error += e.first;
-                            total_d_error += e.second;
-                        }
-                    }
-                    for (auto& l : layers)
-                        l->update();
-                }
-//                errors_over_time.push_back(total_error);
-//                BLT_DEBUG("Total Errors found %f, %f", total_error, total_d_error);
                 
-                return {total_error, total_d_error};
+                for (auto& d : data.data_points)
+                {
+                    std::vector<Scalar> expected{d.is_bad ? 0.0f : 1.0f, d.is_bad ? 1.0f : 0.0f};
+                    
+                    auto out = execute(d.bins);
+                    
+                    Scalar local_total_error = 0;
+                    Scalar local_total_d_error = 0;
+                    BLT_ASSERT(out.size() == expected.size());
+                    for (auto [o, e] : blt::in_pairs(out, expected))
+                    {
+                        auto d_error = o - e;
+                        auto error = 0.5f * (d_error * d_error);
+                        
+                        local_total_error += error;
+                        local_total_d_error += d_error;
+                    }
+                    total_error += local_total_error / 2;
+                    total_d_error += local_total_d_error / 2;
+                }
+                
+                return {total_error / static_cast<Scalar>(data.data_points.size()), total_d_error / static_cast<Scalar>(data.data_points.size())};
+            }
+            
+            error_data_t train(const data_t& data)
+            {
+                error_data_t error = {0, 0};
+                execute(data.bins);
+                std::vector<Scalar> expected{data.is_bad ? 0.0f : 1.0f, data.is_bad ? 1.0f : 0.0f};
+                
+                for (auto [i, layer] : blt::iterate(layers).enumerate().rev())
+                {
+                    if (i == layers.size() - 1)
+                    {
+                        error += layer->back_prop(layers[i - 1]->outputs, expected);
+                    } else if (i == 0)
+                    {
+                        error += layer->back_prop(data.bins, *layers[i + 1]);
+                    } else
+                    {
+                        error += layer->back_prop(layers[i - 1]->outputs, *layers[i + 1]);
+                    }
+                }
+                for (auto& l : layers)
+                    l->update();
+                return error;
+            }
+            
+            error_data_t train_epoch(const data_file_t& example)
+            {
+                error_data_t error {0, 0};
+                for (const auto& x : example.data_points)
+                    error += train(x);
+                error.d_error /= static_cast<Scalar>(example.data_points.size());
+                error.error /= static_cast<Scalar>(example.data_points.size());
+                return error;
             }
 
 #ifdef BLT_USE_GRAPHICS
             
-            void render() const
+            void render(blt::gfx::batch_renderer_2d& renderer) const
             {
                 for (auto& l : layers)
-                    l->render();
+                    l->render(renderer);
             }
 
 #endif

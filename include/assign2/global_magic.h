@@ -30,7 +30,6 @@ namespace assign2
 {
     
     inline blt::size_t layer_id_counter = 0;
-    inline const blt::size_t distance_between_layers = 250;
     inline std::atomic_bool pause_mode = true;
     inline std::atomic_bool pause_flag = false;
     
@@ -54,6 +53,10 @@ namespace assign2
     
     inline std::vector<Scalar> errors_over_time;
     inline std::vector<Scalar> error_derivative_over_time;
+    inline std::vector<Scalar> error_of_test;
+    inline std::vector<Scalar> error_of_test_derivative;
+    
+    inline std::vector<Scalar> error_derivative_of_test;
     inline std::vector<Scalar> correct_over_time;
     inline std::vector<node_data> nodes;
 }
