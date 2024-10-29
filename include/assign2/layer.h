@@ -34,16 +34,17 @@ namespace assign2
             friend layer_t;
         public:
             // empty neuron for loading from a stream
-            explicit neuron_t(weight_view weights, weight_view dw): dw(dw), weights(weights)
-            {}
+//            explicit neuron_t(weight_view weights, weight_view dw): dw(dw), weights(weights)
+//            {}
             
             // neuron with bias
-            explicit neuron_t(weight_view weights, weight_view dw, Scalar bias): bias(bias), dw(dw), weights(weights)
+            explicit neuron_t(weight_view weights, weight_view dw, weight_view momentum, Scalar bias):
+                    bias(bias), dw(dw), weights(weights), momentum(momentum)
             {}
             
             Scalar activate(const std::vector<Scalar>& inputs, function_t* act_func)
             {
-                BLT_ASSERT_MSG(inputs.size() == weights.size(), (std::to_string(inputs.size())  + " vs " + std::to_string(weights.size())).c_str());
+                BLT_ASSERT_MSG(inputs.size() == weights.size(), (std::to_string(inputs.size()) + " vs " + std::to_string(weights.size())).c_str());
                 
                 z = bias;
                 for (auto [x, w] : blt::zip_iterator_container({inputs.begin(), inputs.end()}, {weights.begin(), weights.end()}))
@@ -65,10 +66,24 @@ namespace assign2
                 }
             }
             
-            void update()
+            void update(float omega, bool reset)
             {
-                for (auto [w, d] : blt::in_pairs(weights, dw))
-                    w += d;
+                // if omega is zero we are not using momentum.
+                if (reset || omega == 0)
+                {
+//                    BLT_TRACE("Momentum Reset");
+//                    for (auto& v : momentum)
+//                        std::cout << v << ',';
+//                    std::cout << std::endl;
+                    for (auto& m : momentum)
+                        m = 0;
+                } else
+                {
+                    for (auto [m, d] : blt::in_pairs(momentum, dw))
+                        m += omega * d;
+                }
+                for (auto [w, m, d] : blt::zip(weights, momentum, dw))
+                    w += m + d;
                 bias += db;
             }
             
@@ -101,6 +116,7 @@ namespace assign2
             float error = 0;
             weight_view dw;
             weight_view weights;
+            weight_view momentum;
     };
     
     class layer_t
@@ -114,13 +130,15 @@ namespace assign2
                 neurons.reserve(out_size);
                 weights.preallocate(in_size * out_size);
                 weight_derivatives.preallocate(in_size * out_size);
+                momentum.preallocate(in_size * out_size);
                 for (blt::i32 i = 0; i < out_size; i++)
                 {
                     auto weight = weights.allocate_view(in_size);
                     auto dw = weight_derivatives.allocate_view(in_size);
+                    auto m = momentum.allocate_view(in_size);
                     for (auto& v : weight)
                         v = w(i);
-                    neurons.push_back(neuron_t{weight, dw, b(i)});
+                    neurons.push_back(neuron_t{weight, dw, m, b(i)});
                 }
             }
             
@@ -138,7 +156,7 @@ namespace assign2
             }
             
             error_data_t back_prop(const std::vector<Scalar>& prev_layer_output,
-                                                const std::variant<blt::ref<const std::vector<Scalar>>, blt::ref<const layer_t>>& data)
+                                   const std::variant<blt::ref<const std::vector<Scalar>>, blt::ref<const layer_t>>& data)
             {
                 Scalar total_error = 0;
                 Scalar total_derivative = 0;
@@ -148,20 +166,23 @@ namespace assign2
                             for (auto [i, n] : blt::enumerate(neurons))
                             {
                                 auto d = outputs[i] - expected[i];
+//                                if (outputs[0] > 0.3 && outputs[1] > 0.3)
+//                                    d *= 10 * (outputs[0] + outputs[1]);
                                 auto d2 = 0.5f * (d * d);
+                                // according to the slides and the 3b1b video we sum on the squared error
+                                // not sure why on the slides the 1/2 is moved outside the sum as the cost function is defined (1/2) * (o - y)^2
+                                // and that the total cost for an input pattern is the sum of costs on the output
                                 total_error += d2;
                                 total_derivative += d;
                                 n.back_prop(act_func, prev_layer_output, d);
                             }
-                            total_error /= static_cast<Scalar>(expected.size());
-                            total_derivative /= static_cast<Scalar>(expected.size());
                         },
                         // interior layer
                         [this, &prev_layer_output](const layer_t& layer) {
                             for (auto [i, n] : blt::enumerate(neurons))
                             {
-                                Scalar w = 0;
                                 // TODO: this is not efficient on the cache!
+                                Scalar w = 0;
                                 for (auto nn : layer.neurons)
                                     w += nn.error * nn.weights[i];
                                 n.back_prop(act_func, prev_layer_output, w);
@@ -171,10 +192,10 @@ namespace assign2
                 return {total_error, total_derivative};
             }
             
-            void update()
+            void update(const float* omega, bool reset)
             {
                 for (auto& n : neurons)
-                    n.update();
+                    n.update(omega == nullptr ? 0 : *omega, reset);
             }
             
             template<typename OStream>
@@ -247,6 +268,7 @@ namespace assign2
             const blt::size_t layer_id;
             weight_t weights;
             weight_t weight_derivatives;
+            weight_t momentum;
             function_t* act_func;
             std::vector<neuron_t> neurons;
             std::vector<Scalar> outputs;

@@ -164,7 +164,7 @@ namespace assign2
             std::vector<Scalar> data;
     };
     
-    std::vector<std::string> get_data_files(std::string_view path)
+    inline std::vector<std::string> get_data_files(std::string_view path)
     {
         std::vector<std::string> files;
         
@@ -180,7 +180,7 @@ namespace assign2
         return files;
     }
     
-    std::vector<data_file_t> load_data_files(const std::vector<std::string>& files)
+    inline std::vector<data_file_t> load_data_files(const std::vector<std::string>& files)
     {
         std::vector<data_file_t> loaded_data;
         
@@ -245,7 +245,31 @@ namespace assign2
         return loaded_data;
     }
     
-    bool is_thinks_bad(const std::vector<Scalar>& out)
+    inline void save_as_csv(const std::string& file, const std::vector<std::pair<std::string, std::vector<Scalar>>>& data)
+    {
+        std::ofstream stream{file};
+        stream << "epoch,";
+        for (auto [i, d] : blt::enumerate(data))
+        {
+            stream << d.first;
+            if (i != data.size() - 1)
+                stream << ',';
+        }
+        stream << '\n';
+        for (blt::size_t i = 0; i < data.begin()->second.size(); i++)
+        {
+            stream << i << ',';
+            for (auto [j, d] : blt::enumerate(data))
+            {
+                stream << d.second[i];
+                if (j != data.size() - 1)
+                    stream << ',';
+            }
+            stream << '\n';
+        }
+    }
+    
+    inline bool is_thinks_bad(const std::vector<Scalar>& out)
     {
         return out[0] < out[1];
     }

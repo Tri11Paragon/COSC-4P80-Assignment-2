@@ -79,22 +79,7 @@ namespace assign2
                 outputs.emplace_back(input);
                 
                 for (auto [i, v] : blt::enumerate(layers))
-                {
-//                    auto in = outputs.back();
-//                    std::cout << "(" << i + 1 << "/" << layers.size() << ") Going In: ";
-//                    print_vec(in.get()) << std::endl;
-//                    auto& out = v->call(in);
-//                    std::cout << "(" << i + 1 << "/" << layers.size() << ") Coming out: ";
-//                    print_vec(out) << std::endl;
-////                    std::cout << "(" << i << "/" << layers.size() << ") Weights: ";
-////                    v->weights.debug();
-////                    std::cout << std::endl;
-//                    std::cout << std::endl;
-//
-//                    outputs.emplace_back(out);
                     outputs.emplace_back(v->call(outputs.back()));
-                }
-//                std::cout << std::endl;
                 
                 return outputs.back();
             }
@@ -110,25 +95,22 @@ namespace assign2
                     
                     auto out = execute(d.bins);
                     
-                    Scalar local_total_error = 0;
-                    Scalar local_total_d_error = 0;
                     BLT_ASSERT(out.size() == expected.size());
                     for (auto [o, e] : blt::in_pairs(out, expected))
                     {
                         auto d_error = o - e;
+                        
                         auto error = 0.5f * (d_error * d_error);
                         
-                        local_total_error += error;
-                        local_total_d_error += d_error;
+                        total_error += error;
+                        total_d_error += d_error;
                     }
-                    total_error += local_total_error / 2;
-                    total_d_error += local_total_d_error / 2;
                 }
                 
                 return {total_error / static_cast<Scalar>(data.data_points.size()), total_d_error / static_cast<Scalar>(data.data_points.size())};
             }
             
-            error_data_t train(const data_t& data)
+            error_data_t train(const data_t& data, bool reset)
             {
                 error_data_t error = {0, 0};
                 execute(data.bins);
@@ -148,18 +130,33 @@ namespace assign2
                     }
                 }
                 for (auto& l : layers)
-                    l->update();
+                    l->update(m_omega, reset);
+//                BLT_TRACE("Error for input: %f, derr: %f", error.error, error.d_error);
                 return error;
             }
             
-            error_data_t train_epoch(const data_file_t& example)
+            error_data_t train_epoch(const data_file_t& example, blt::i32 trains_per_data = 1)
             {
-                error_data_t error {0, 0};
+                error_data_t error{0, 0};
                 for (const auto& x : example.data_points)
-                    error += train(x);
-                error.d_error /= static_cast<Scalar>(example.data_points.size());
-                error.error /= static_cast<Scalar>(example.data_points.size());
+                {
+                    for (blt::i32 i = 0; i < trains_per_data; i++)
+                        error += train(x, reset_next);
+                }
+                // take the average cost over all the training.
+                error.d_error /= static_cast<Scalar>(example.data_points.size() * trains_per_data);
+                error.error /= static_cast<Scalar>(example.data_points.size() * trains_per_data);
+                // as long as we are reducing error in the same direction in overall terms, we should still build momentum.
+                auto last_sign = last_d_error >= 0;
+                auto cur_sign = error.d_error >= 0;
+                last_d_error = error.d_error;
+                reset_next = last_sign != cur_sign;
                 return error;
+            }
+            
+            void with_momentum(Scalar* omega)
+            {
+                m_omega = omega;
             }
 
 #ifdef BLT_USE_GRAPHICS
@@ -173,6 +170,10 @@ namespace assign2
 #endif
         
         private:
+            // pointer so it can be changed from the UI
+            Scalar* m_omega = nullptr;
+            Scalar last_d_error = 0;
+            bool reset_next = false;
             std::vector<std::unique_ptr<layer_t>> layers;
     };
 }

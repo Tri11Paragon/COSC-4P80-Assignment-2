@@ -66,6 +66,19 @@ namespace assign2
             return s >= 0 ? 1 : 0;
         }
     };
+    
+    struct bulu_function : public function_t
+    {
+        [[nodiscard]] Scalar call(const Scalar s) const final
+        {
+            return s > 0.5 ? s : -s;
+        }
+        
+        [[nodiscard]] Scalar derivative(Scalar s) const final
+        {
+            return s >= 0 ? 1 : -1;
+        }
+    };
 }
 
 #endif //COSC_4P80_ASSIGNMENT_2_FUNCTIONS_H

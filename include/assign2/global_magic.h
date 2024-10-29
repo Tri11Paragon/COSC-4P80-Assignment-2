@@ -58,7 +58,18 @@ namespace assign2
     
     inline std::vector<Scalar> error_derivative_of_test;
     inline std::vector<Scalar> correct_over_time;
+    inline std::vector<Scalar> correct_over_time_test;
     inline std::vector<node_data> nodes;
+    
+    void save_error_info(const std::string& name)
+    {
+        save_as_csv("network" + name + ".csv", {{"train_error",   errors_over_time},
+                                                                        {"train_d_error", error_derivative_over_time},
+                                                                        {"test_error",    error_of_test},
+                                                                        {"test_d_error",  error_of_test_derivative},
+                                                                        {"correct_train",       correct_over_time},
+                                                                        {"correct_test",       correct_over_time_test}});
+    }
 }
 
 #endif //COSC_4P80_ASSIGNMENT_2_GLOBAL_MAGIC_H
