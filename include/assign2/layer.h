@@ -57,19 +57,19 @@ namespace assign2
             {
                 // delta for weights
                 error = act->derivative(z) * next_error;
-                db = learn_rate * error;
+                db = -learn_rate * error;
                 BLT_ASSERT(previous_outputs.size() == dw.size());
                 for (auto [prev_out, d_weight] : blt::zip(previous_outputs, dw))
                 {
                     // dw
-                    d_weight = -learn_rate * prev_out * error;
+                    d_weight = learn_rate * prev_out * error;
                 }
             }
             
             void update(float omega, bool reset)
             {
                 // if omega is zero we are not using momentum.
-                if (reset || omega == 0)
+                if (omega == 0)
                 {
 //                    BLT_TRACE("Momentum Reset");
 //                    for (auto& v : momentum)
@@ -165,7 +165,7 @@ namespace assign2
                         [this, &prev_layer_output, &total_error, &total_derivative](const std::vector<Scalar>& expected) {
                             for (auto [i, n] : blt::enumerate(neurons))
                             {
-                                auto d = outputs[i] - expected[i];
+                                auto d = expected[i] - outputs[i];
 //                                if (outputs[0] > 0.3 && outputs[1] > 0.3)
 //                                    d *= 10 * (outputs[0] + outputs[1]);
                                 auto d2 = 0.5f * (d * d);

@@ -98,7 +98,7 @@ namespace assign2
                     BLT_ASSERT(out.size() == expected.size());
                     for (auto [o, e] : blt::in_pairs(out, expected))
                     {
-                        auto d_error = o - e;
+                        auto d_error = e - o;
                         
                         auto error = 0.5f * (d_error * d_error);
                         

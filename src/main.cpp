@@ -34,8 +34,8 @@ network_t create_network(blt::i32 input, blt::i32 hidden)
     const auto inner_mul = 0.25;
     auto layer1 = std::make_unique<layer_t>(input, hidden * mul, &sig, randomizer, empty);
     auto layer2 = std::make_unique<layer_t>(hidden * mul, hidden * inner_mul, &sig, randomizer, empty);
-//    auto layer3 = std::make_unique<layer_t>(hidden * mul, hidden * mul, &sig, randomizer, empty);
-//    auto layer4 = std::make_unique<layer_t>(hidden * mul, hidden * mul, &sig, randomizer, empty);
+//    auto layer3 = std::make_unique<layer_t>(hidden * inner_mul, hidden * inner_mul, &sig, randomizer, empty);
+//    auto layer4 = std::make_unique<layer_t>(hidden * inner_mul, hidden * inner_mul, &sig, randomizer, empty);
     auto layer_output = std::make_unique<layer_t>(hidden * inner_mul, 2, &sig, randomizer, empty);
     
     std::vector<std::unique_ptr<layer_t>> vec;
@@ -215,7 +215,7 @@ void init(const blt::gfx::window_data&)
                 
                 auto error = errors_over_time.back();
 //                error = std::sqrt(error * error + error + 0.01f);
-                error = std::max(0.0f, std::min(1.0f, error));
+//                error = std::max(0.0f, std::min(1.0f, error));
                 learn_rate = error * init_learn;
                 omega = error * init_momentum;
                 
@@ -605,7 +605,7 @@ int main(int argc, const char** argv)
         int input = static_cast<int>(f.data_points.begin()->bins.size());
         int hidden = input;
         
-        if (input != 32)
+        if (input != 64)
             continue;
         
         BLT_INFO("-----------------");
@@ -616,8 +616,8 @@ int main(int argc, const char** argv)
         network_t network = create_network(input, hidden);
         
         float o = 0.00001;
-        network.with_momentum(&o);
-        for (blt::size_t i = 0; i < 300; i++)
+//        network.with_momentum(&o);
+        for (blt::size_t i = 0; i < 10000; i++)
             network.train_epoch(f, 1);
         
         BLT_INFO("Test Cases:");
