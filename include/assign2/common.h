@@ -21,7 +21,6 @@
 
 #include <iostream>
 #include <blt/iterator/enumerate.h>
-#include <filesystem>
 
 #ifdef BLT_USE_GRAPHICS
     
@@ -48,17 +47,6 @@ namespace assign2
         }
         return std::cout;
     }
-    
-    struct data_t
-    {
-        bool is_bad = false;
-        std::vector<Scalar> bins;
-    };
-    
-    struct data_file_t
-    {
-        std::vector<data_t> data_points;
-    };
     
     struct error_data_t
     {
@@ -163,111 +151,6 @@ namespace assign2
             blt::size_t place = 0;
             std::vector<Scalar> data;
     };
-    
-    inline std::vector<std::string> get_data_files(std::string_view path)
-    {
-        std::vector<std::string> files;
-        
-        for (const auto& file : std::filesystem::recursive_directory_iterator(path))
-        {
-            if (file.is_directory())
-                continue;
-            auto file_path = file.path().string();
-            if (blt::string::ends_with(file_path, ".out"))
-                files.push_back(blt::fs::getFile(file_path));
-        }
-        
-        return files;
-    }
-    
-    inline std::vector<data_file_t> load_data_files(const std::vector<std::string>& files)
-    {
-        std::vector<data_file_t> loaded_data;
-        
-        // load all file
-        for (auto file : files)
-        {
-            // we only use unix line endings here...
-            blt::string::replaceAll(file, "\r", "");
-            auto lines = blt::string::split(file, "\n");
-            auto line_it = lines.begin();
-            auto meta = blt::string::split(*line_it, ' ');
-            
-            // load data inside files
-            data_file_t data;
-            data.data_points.reserve(std::stoll(meta[0]));
-            auto bin_count = std::stoul(meta[1]);
-            
-            for (++line_it; line_it != lines.end(); ++line_it)
-            {
-                auto line_data_meta = blt::string::split(*line_it, ' ');
-                if (line_data_meta.size() != bin_count + 1)
-                    continue;
-                auto line_data_it = line_data_meta.begin();
-                
-                // load bins
-                data_t line_data;
-                line_data.is_bad = std::stoi(*line_data_it) == 1;
-                line_data.bins.reserve(bin_count);
-                Scalar total = 0;
-                Scalar min = 1000;
-                Scalar max = 0;
-                for (++line_data_it; line_data_it != line_data_meta.end(); ++line_data_it)
-                {
-                    auto v = std::stof(*line_data_it);
-                    if (v > max)
-                        max = v;
-                    if (v < min)
-                        min = v;
-                    total += v * v;
-                    line_data.bins.push_back(v);
-                }
-                
-                // normalize vector.
-                total = std::sqrt(total);
-//
-//                for (auto& v : line_data.bins)
-//                {
-//                    v /= total;
-//                    v *= 2.71828;
-//                    v -= 2.71828 / 2;
-//                }
-//
-//            if (line_data.bins.size() == 32)
-//                print_vec(line_data.bins) << std::endl;
-                
-                data.data_points.push_back(line_data);
-            }
-            
-            loaded_data.push_back(data);
-        }
-        
-        return loaded_data;
-    }
-    
-    inline void save_as_csv(const std::string& file, const std::vector<std::pair<std::string, std::vector<Scalar>>>& data)
-    {
-        std::ofstream stream{file};
-        stream << "epoch,";
-        for (auto [i, d] : blt::enumerate(data))
-        {
-            stream << d.first;
-            if (i != data.size() - 1)
-                stream << ',';
-        }
-        stream << '\n';
-        for (blt::size_t i = 0; i < data.begin()->second.size(); i++)
-        {
-            stream << i << ',';
-            for (auto [j, d] : blt::enumerate(data))
-            {
-                stream << d.second[i];
-                if (j != data.size() - 1)
-                    stream << ',';
-            }
-            stream << '\n';
-        }
-    }
     
     inline bool is_thinks_bad(const std::vector<Scalar>& out)
     {

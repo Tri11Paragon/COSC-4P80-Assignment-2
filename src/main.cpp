@@ -7,6 +7,7 @@
 #include <assign2/layer.h>
 #include <assign2/functions.h>
 #include <assign2/network.h>
+#include <assign2/file.h>
 #include <memory>
 #include <thread>
 #include <algorithm>
@@ -510,7 +511,7 @@ int main(int argc, const char** argv)
     
     std::string data_directory = blt::string::ensure_ends_with_path_separator(args.get<std::string>("file"));
     
-    data_files = load_data_files(get_data_files(data_directory));
+    data_files = data_file_t::load_data_files_from_path(data_directory);
     
     if (args.contains("kfold"))
     {
@@ -586,12 +587,12 @@ int main(int argc, const char** argv)
     }
     
     // this is to prevent threading issues due to expanding buffers.
-    errors_over_time.reserve(25000);
-    error_derivative_over_time.reserve(25000);
-    correct_over_time.reserve(25000);
-    correct_over_time_test.reserve(25000);
-    error_of_test.reserve(25000);
-    error_of_test_derivative.reserve(25000);
+    training_error_epochs.reserve(25000);
+    d_training_error_epochs.reserve(25000);
+    training_correct_epochs.reserve(25000);
+    testing_correct_epochs.reserve(25000);
+    testing_error_epochs.reserve(25000);
+    d_testing_error_epochs.reserve(25000);
 
 #ifdef BLT_USE_GRAPHICS
     blt::gfx::init(blt::gfx::window_data{"Freeplay Graphics", init, update, 1440, 720}.setSyncInterval(1).setMonitor(glfwGetPrimaryMonitor())
