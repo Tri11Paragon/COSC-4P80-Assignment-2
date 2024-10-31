@@ -107,6 +107,39 @@ namespace assign2
         return data;
     }
     
+    data_file_t data_file_t::normalize() const
+    {
+        auto copy = *this;
+        
+        for (auto& v : copy.data_points)
+            v = v.normalize();
+        
+        return copy;
+    }
+    
+    data_file_t data_file_t::with_padding(blt::size_t desired_size, Scalar padding_value) const
+    {
+        auto copy = *this;
+        
+        for (auto& v : copy.data_points)
+            v = v.with_padding(desired_size, padding_value);
+        
+        return copy;
+    }
+    
+    data_file_t& data_file_t::operator+=(const data_file_t& o)
+    {
+        data_points.insert(data_points.end(), o.data_points.begin(), o.data_points.end());
+        return *this;
+    }
+    
+    data_file_t operator+(const data_file_t& a, const data_file_t& b)
+    {
+        data_file_t file = a;
+        file.data_points.insert(file.data_points.end(), b.data_points.begin(), b.data_points.end());
+        return file;
+    }
+    
     void save_as_csv(const std::string& file, const std::vector<std::pair<std::string, std::vector<Scalar>>>& data)
     {
         std::ofstream stream{file};

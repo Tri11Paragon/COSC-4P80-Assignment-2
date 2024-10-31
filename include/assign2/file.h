@@ -21,10 +21,8 @@
 
 #include <assign2/common.h>
 
-
 namespace assign2
 {
-    
     struct data_t
     {
         bool is_bad = false;
@@ -38,6 +36,12 @@ namespace assign2
     {
         public:
             std::vector<data_t> data_points;
+        
+            [[nodiscard]] data_file_t normalize() const;
+            [[nodiscard]] data_file_t with_padding(blt::size_t desired_size, Scalar padding_value = 0) const;
+            
+            data_file_t& operator+=(const data_file_t& o);
+            data_file_t friend operator+(const data_file_t& a, const data_file_t& b);
             
             static std::vector<data_file_t> load_data_files_from_path(std::string_view path);
         

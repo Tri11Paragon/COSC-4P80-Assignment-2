@@ -2,16 +2,13 @@
 #include <blt/fs/loader.h>
 #include <blt/parse/argparse.h>
 #include <assign2/common.h>
-#include <filesystem>
 #include "blt/iterator/enumerate.h"
 #include <assign2/layer.h>
 #include <assign2/functions.h>
 #include <assign2/network.h>
 #include <assign2/file.h>
-#include <memory>
 #include <thread>
 #include <algorithm>
-#include <mutex>
 
 using namespace assign2;
 
@@ -35,20 +32,17 @@ network_t create_network(blt::i32 input, blt::i32 hidden)
     const auto inner_mul = 0.25;
     auto layer1 = std::make_unique<layer_t>(input, hidden * mul, &sig, randomizer, empty);
     auto layer2 = std::make_unique<layer_t>(hidden * mul, hidden * inner_mul, &sig, randomizer, empty);
-//    auto layer3 = std::make_unique<layer_t>(hidden * inner_mul, hidden * inner_mul, &sig, randomizer, empty);
-//    auto layer4 = std::make_unique<layer_t>(hidden * inner_mul, hidden * inner_mul, &sig, randomizer, empty);
-    auto layer_output = std::make_unique<layer_t>(hidden * inner_mul, 2, &sig, randomizer, empty);
+    auto layer_output = std::make_unique<layer_t>(hidden * inner_mul, 2, &relu, randomizer, empty);
     
     std::vector<std::unique_ptr<layer_t>> vec;
     vec.push_back(std::move(layer1));
     vec.push_back(std::move(layer2));
-//    vec.push_back(std::move(layer3));
-//    vec.push_back(std::move(layer4));
     vec.push_back(std::move(layer_output));
     
     network_t network{std::move(vec)};
     if (with_momentum)
         network.with_momentum(&omega);
+
     return network;
 }
 
@@ -606,7 +600,7 @@ int main(int argc, const char** argv)
         int input = static_cast<int>(f.data_points.begin()->bins.size());
         int hidden = input;
         
-        if (input != 64)
+        if (input != 16)
             continue;
         
         BLT_INFO("-----------------");
@@ -616,9 +610,12 @@ int main(int argc, const char** argv)
         
         network_t network = create_network(input, hidden);
         
-        float o = 0.00001;
-//        network.with_momentum(&o);
-        for (blt::size_t i = 0; i < 10000; i++)
+        auto output = network.execute(f.data_points.front().bins);
+        print_vec(output) << std::endl;
+        
+        float o = 0.0001;
+        network.with_momentum(&o);
+        for (blt::size_t i = 0; i < 300; i++)
             network.train_epoch(f, 1);
         
         BLT_INFO("Test Cases:");
