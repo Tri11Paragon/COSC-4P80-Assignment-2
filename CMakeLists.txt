@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(COSC-4P80-Assignment-2 VERSION 0.1.1)
+project(COSC-4P80-Assignment-2 VERSION 0.1.2)
 
 option(ENABLE_ADDRSAN "Enable the address sanitizer" OFF)
 option(ENABLE_UBSAN "Enable the ub sanitizer" OFF)
@@ -19,7 +19,7 @@ if (ENABLE_GRAPHICS)
     set(EXTRA_SOURCES lib/implot/implot.cpp lib/implot/implot_demo.cpp lib/implot/implot_items.cpp)
     include_directories(lib/implot)
 else ()
-    add_subdirectory(lib/blt)
+    add_subdirectory(lib/blt-graphics/libraries/BLT)
 endif ()
 
 #add_subdirectory(lib/eigen-3.4.0)

@@ -34,7 +34,7 @@ namespace assign2
 {
     using Scalar = float;
 //    const inline Scalar learn_rate = 0.001;
-    inline Scalar learn_rate = 0.001;
+    inline Scalar learn_rate = 0.1;
     
     template<typename T>
     decltype(std::cout)& print_vec(const std::vector<T>& vec)

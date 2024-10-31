@@ -15,10 +15,13 @@
 
 #include <assign2/file.h>
 #include <blt/std/string.h>
+#include <blt/std/random.h>
 #include <blt/fs/loader.h>
 #include <filesystem>
 #include <cmath>
 #include <fstream>
+#include <algorithm>
+#include <random>
 
 namespace assign2
 {
@@ -138,6 +141,40 @@ namespace assign2
         data_file_t file = a;
         file.data_points.insert(file.data_points.end(), b.data_points.begin(), b.data_points.end());
         return file;
+    }
+    
+    partitioned_dataset_t dataset_partitioner::partition(blt::size_t groups) const
+    {
+        std::vector<data_t> good_data;
+        std::vector<data_t> bad_data;
+        
+        for (const auto& f : files)
+        {
+            for (const auto& v : f.data_points)
+            {
+                if (v.is_bad)
+                    bad_data.push_back(v);
+                else
+                    good_data.push_back(v);
+            }
+        }
+        
+        blt::random::random_t rand{std::random_device{}()};
+        
+        std::shuffle(good_data.begin(), good_data.end(), rand);
+        std::shuffle(bad_data.begin(), bad_data.end(), rand);
+        
+        std::vector<data_file_t> grouped_data;
+        grouped_data.resize(groups);
+        
+        blt::size_t insert_group = 0;
+        for (const auto& good : good_data)
+            grouped_data[insert_group++ % groups].data_points.push_back(good);
+        
+        for (const auto& bad : bad_data)
+            grouped_data[insert_group++ % groups].data_points.push_back(bad);
+        
+        return partitioned_dataset_t{std::move(grouped_data)};
     }
     
     void save_as_csv(const std::string& file, const std::vector<std::pair<std::string, std::vector<Scalar>>>& data)

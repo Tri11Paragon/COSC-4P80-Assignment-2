@@ -12,7 +12,6 @@
 
 using namespace assign2;
 
-std::vector<data_file_t> data_files;
 blt::hashmap_t<blt::i32, std::vector<data_file_t>> groups;
 blt::hashmap_t<blt::i32, network_t> networks;
 bool with_momentum = false;
@@ -31,22 +30,22 @@ network_t create_network(blt::i32 input, blt::i32 hidden)
     const auto mul = 0.5;
     const auto inner_mul = 0.25;
     auto layer1 = std::make_unique<layer_t>(input, hidden * mul, &sig, randomizer, empty);
-    auto layer2 = std::make_unique<layer_t>(hidden * mul, hidden * inner_mul, &sig, randomizer, empty);
-    auto layer_output = std::make_unique<layer_t>(hidden * inner_mul, 2, &relu, randomizer, empty);
+//    auto layer2 = std::make_unique<layer_t>(hidden * mul, hidden * inner_mul, &sig, randomizer, empty);
+    auto layer_output = std::make_unique<layer_t>(hidden * mul, 2, &sig, randomizer, empty);
     
     std::vector<std::unique_ptr<layer_t>> vec;
     vec.push_back(std::move(layer1));
-    vec.push_back(std::move(layer2));
+//    vec.push_back(std::move(layer2));
     vec.push_back(std::move(layer_output));
     
     network_t network{std::move(vec)};
     if (with_momentum)
         network.with_momentum(&omega);
-
+    
     return network;
 }
 
-std::pair<data_file_t, data_file_t> create_groups(blt::i32 network, blt::i32 k = 0)
+std::pair<data_file_t, data_file_t> partition_groups(blt::i32 network, blt::i32 k = 0)
 {
     data_file_t training;
     data_file_t testing;
@@ -112,7 +111,7 @@ void update_current(int network)
         current_testing.data_points.clear();
         current_training.data_points.clear();
         
-        auto g = create_groups(network, current_k);
+        auto g = partition_groups(network, current_k);
         current_testing = g.second;
         current_training = g.first;
     } else
@@ -126,12 +125,12 @@ void update_current(int network)
 void reset_errors(int network)
 {
     save_error_info(std::to_string(network));
-    errors_over_time.clear();
-    correct_over_time.clear();
-    correct_over_time_test.clear();
-    error_derivative_over_time.clear();
-    error_of_test.clear();
-    error_of_test_derivative.clear();
+    training_error_epochs.clear();
+    training_correct_epochs.clear();
+    testing_correct_epochs.clear();
+    d_training_error_epochs.clear();
+    testing_error_epochs.clear();
+    d_testing_error_epochs.clear();
     epochs = 0;
     run_network = false;
 }
@@ -170,12 +169,12 @@ void init(const blt::gfx::window_data&)
                 {
                     std::scoped_lock lock(vec_lock);
                     auto error = networks.at(run_epoch).train_epoch(current_training, trains_per_data);
-                    errors_over_time.push_back(error.error);
-                    error_derivative_over_time.push_back(error.d_error);
+                    training_error_epochs.push_back(error.error);
+                    d_training_error_epochs.push_back(error.d_error);
                     
                     auto error_test = networks.at(run_epoch).error(current_testing);
-                    error_of_test.push_back(error_test.error);
-                    error_of_test_derivative.push_back(error_test.d_error);
+                    testing_error_epochs.push_back(error_test.error);
+                    d_testing_error_epochs.push_back(error_test.d_error);
                     
                     for (auto& d : current_testing.data_points)
                     {
@@ -203,12 +202,12 @@ void init(const blt::gfx::window_data&)
                 correct_recall_train = right_a;
                 wrong_recall_test = wrong_t;
                 wrong_recall_train = wrong_a;
-                correct_over_time
+                training_correct_epochs
                         .push_back(static_cast<Scalar>(correct_recall_train) / static_cast<Scalar>(correct_recall_train + wrong_recall_train) * 100);
-                correct_over_time_test
+                testing_correct_epochs
                         .push_back(static_cast<Scalar>(correct_recall_test) / static_cast<Scalar>(correct_recall_test + wrong_recall_test) * 100);
                 
-                auto error = errors_over_time.back();
+                auto error = training_error_epochs.back();
 //                error = std::sqrt(error * error + error + 0.01f);
 //                error = std::max(0.0f, std::min(1.0f, error));
                 learn_rate = error * init_learn;
@@ -399,51 +398,51 @@ void update(const blt::gfx::window_data& data)
     if (ImGui::Begin("Stats"))
     {
         static std::vector<int> x_points;
-        if (errors_over_time.size() != x_points.size())
+        if (training_error_epochs.size() != x_points.size())
         {
             x_points.clear();
-            for (int i = 0; i < static_cast<int>(errors_over_time.size()); i++)
+            for (int i = 0; i < static_cast<int>(training_error_epochs.size()); i++)
                 x_points.push_back(i);
         }
         
         static ImPlotRect lims(0, 500, 0, 1);
         if (ImPlot::BeginSubplots("##LinkedGroup", 3, 2, ImVec2(-1, -1)))
         {
-            plot_vector(lims, errors_over_time, "Global Error (Training)", "Epoch", "Error", [](auto v, bool b) {
+            plot_vector(lims, training_error_epochs, "Global Error (Training)", "Epoch", "Error", [](auto v, bool b) {
                 float percent = 0.15;
                 if (b)
                     return v < 0 ? v * (1 + percent) : v * (1 - percent);
                 else
                     return v < 0 ? v * (1 - percent) : v * (1 + percent);
             });
-            plot_vector(lims, error_of_test, "Global Error (Tests)", "Epoch", "Error", [](auto v, bool b) {
+            plot_vector(lims, testing_error_epochs, "Global Error (Tests)", "Epoch", "Error", [](auto v, bool b) {
                 float percent = 0.15;
                 if (b)
                     return v < 0 ? v * (1 + percent) : v * (1 - percent);
                 else
                     return v < 0 ? v * (1 - percent) : v * (1 + percent);
             });
-            plot_vector(lims, error_derivative_over_time, "DError/Dw (Training)", "Epoch", "DError", [](auto v, bool b) {
+            plot_vector(lims, d_training_error_epochs, "DError/Dw (Training)", "Epoch", "DError", [](auto v, bool b) {
                 float percent = 0.05;
                 if (b)
                     return v < 0 ? v * (1 + percent) : v * (1 - percent);
                 else
                     return v < 0 ? v * (1 - percent) : v * (1 + percent);
             });
-            plot_vector(lims, error_of_test_derivative, "DError/Dw (Test)", "Epoch", "DError", [](auto v, bool b) {
+            plot_vector(lims, d_testing_error_epochs, "DError/Dw (Test)", "Epoch", "DError", [](auto v, bool b) {
                 float percent = 0.05;
                 if (b)
                     return v < 0 ? v * (1 + percent) : v * (1 - percent);
                 else
                     return v < 0 ? v * (1 - percent) : v * (1 + percent);
             });
-            plot_vector(lims, correct_over_time, "% Correct (Training)", "Epoch", "Correct%", [](auto v, bool b) {
+            plot_vector(lims, training_correct_epochs, "% Correct (Training)", "Epoch", "Correct%", [](auto v, bool b) {
                 if (b)
                     return v - 1;
                 else
                     return v + 1;
             });
-            plot_vector(lims, correct_over_time_test, "% Correct (Test)", "Epoch", "Correct%", [](auto v, bool b) {
+            plot_vector(lims, testing_correct_epochs, "% Correct (Test)", "Epoch", "Correct%", [](auto v, bool b) {
                 if (b)
                     return v - 1;
                 else
@@ -489,12 +488,23 @@ void destroy()
 int main(int argc, const char** argv)
 {
     blt::arg_parse parser;
-    parser.addArgument(blt::arg_builder("-f", "--file").setHelp("Path to the data files").setDefault("../data").setMetavar("FOLDER").build());
-    parser.addArgument(
-            blt::arg_builder("-k", "--kfold").setHelp("Number of groups to split into [Defaults to 3 if no number is provided]")
-                                             .setAction(blt::arg_action_t::STORE).setNArgs('?').setConst("3").setMetavar("GROUPS").build());
-    parser.addArgument(blt::arg_builder("-m", "--momentum").setHelp("Use momentum in weight calculations").setAction(blt::arg_action_t::STORE_TRUE)
+    parser.addArgument(blt::arg_builder("-f", "--file").setHelp("Path to the data files")
+                                                       .setDefault("../data")
+                                                       .setMetavar("FOLDER").build());
+    
+    parser.addArgument(blt::arg_builder("-k", "--kfold").setHelp("Number of groups to split into [Defaults to 3 if no number is provided]")
+                                                        .setAction(blt::arg_action_t::STORE)
+                                                        .setNArgs('?')
+                                                        .setConst("3")
+                                                        .setMetavar("GROUPS").build());
+    
+    parser.addArgument(blt::arg_builder("-m", "--momentum").setHelp("Use momentum in weight calculations")
+                                                           .setAction(blt::arg_action_t::STORE_TRUE)
                                                            .setDefault(false).build());
+    
+    parser.addArgument(blt::arg_builder("-n", "--normalize").setHelp("Normalize the datasets")
+                                                            .setAction(blt::arg_action_t::STORE_TRUE)
+                                                            .setDefault(false).build());
     
     auto args = parser.parse_args(argc, argv);
     if (args.get<bool>("momentum"))
@@ -505,7 +515,13 @@ int main(int argc, const char** argv)
     
     std::string data_directory = blt::string::ensure_ends_with_path_separator(args.get<std::string>("file"));
     
-    data_files = data_file_t::load_data_files_from_path(data_directory);
+    auto data_files = data_file_t::load_data_files_from_path(data_directory);
+    
+    if (args.get<bool>("normalize"))
+    {
+        for (auto& v : data_files)
+            v = v.normalize();
+    }
     
     if (args.contains("kfold"))
     {
